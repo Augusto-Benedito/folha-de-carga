@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Saídas do PyInstaller
+build/
+dist/
+*.spec
+
+# Arquivos do dia a dia (não vão para o repositório)
+*.pdf
+Carga *.xlsx
+Carga_*.xlsx
+~$*.xlsx

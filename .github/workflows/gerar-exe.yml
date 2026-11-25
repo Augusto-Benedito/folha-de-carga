@@ -1,0 +1,39 @@
+name: Gerar FolhaDeCarga.exe
+
+# Roda a cada mudança enviada para a branch main (e também pode ser
+# disparado na mão pela aba "Actions" -> "Gerar FolhaDeCarga.exe" -> "Run workflow").
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q
+
+  exe:
+    needs: testes
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt pyinstaller
+      - name: Montar o .exe
+        run: >
+          pyinstaller --onefile --windowed --name FolhaDeCarga
+          --add-data "mapa_ordem.csv;."
+          folha_carga_app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FolhaDeCarga
+          path: dist/FolhaDeCarga.exe
+          retention-days: 90
