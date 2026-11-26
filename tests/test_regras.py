@@ -473,3 +473,11 @@ def test_destilados_casco_de_12_garrafas():
     itens = [{"ref": "1", "nome": "", "qtd": 12.0}, {"ref": "2", "nome": "", "qtd": 3.0}]
     v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
     assert core.texto_vasilhame(v) == ("Vasilhame Destilados que volta (30 garrafas)", "2 CX + 6 UN")
+
+
+def test_guarana_300ml_casco_de_24_garrafas():
+    cadastro = {"1": "GUARANA ANTARCTICA 300ML RET UN", "2": "GUARANA ANTARCTICA 300ML RET CX 12X1"}
+    # 30 garrafas soltas + 1 caixa de 12 = 42 garrafas = 1 casco de 24 + 18 soltas.
+    itens = [{"ref": "1", "nome": "", "qtd": 30.0}, {"ref": "2", "nome": "", "qtd": 1.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame Guaraná 300ML que volta (42 garrafas)", "1 CX + 18 UN")

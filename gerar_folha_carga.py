@@ -361,8 +361,8 @@ TIPOS_VASILHAME = [
     ("Refri 2L", re.compile(r"^(?!CERV\b)(?=.*\b2L\b)(?=.*\bRET\b)"), 12),
     # Tudo que é KS: Coca, Coca Zero, Fanta, Sprite... KS 290ML.
     ("KS", re.compile(r"\bKS\b"), None),
-    # Guaraná 300ML retornável (não confundir com a cerveja litrinho 300ML).
-    ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b"), None),
+    # Guaraná 300ML retornável (não confundir com a cerveja litrinho 300ML). Casco de 24.
+    ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b"), 24),
     # Cerveja 600ML retornável (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
     # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
     # A Amstel 600ML volta junto com as da Ambev; a Heineken tem casco próprio (abaixo).

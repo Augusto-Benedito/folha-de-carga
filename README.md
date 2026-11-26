@@ -65,7 +65,7 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
 - **Vasilhames que devem voltar:** no fim da seção dos produtos aparece uma linha em destaque para cada vasilhame da carga, na ordem do mapa. Em RETORNÁVEIS:
   - **Refri 2L**: todo refrigerante 2L RET (Coca, Coca Zero, Fanta Laranja, Fanta Uva...). O casco leva **12 garrafas**: o programa soma as garrafas (FD 6X1 = 6) e divide por 12; o que sobra sai como UN. Ex.: 7 FD = 42 garrafas = `3 CX + 6 UN`.
   - **KS**: todo produto com "KS" no nome (Coca KS, Coca Zero KS, Fanta KS, Sprite KS...).
-  - **Guaraná 300ML**: Guaraná 300ML RET (a cerveja litrinho 300ML não conta).
+  - **Guaraná 300ML**: Guaraná 300ML RET (a cerveja litrinho 300ML não conta). O casco leva **24 garrafas**: soma as garrafas e divide por 24.
 
   Em CERVEJAS RETORNÁVEIS:
   - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Amstel volta junto com as da Ambev. A Spaten DESC (descartável) não conta.
