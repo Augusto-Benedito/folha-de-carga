@@ -374,7 +374,7 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
     vas = core.conta_vasilhames(itens, _por_ref(cadastro))
     assert [v["nome"] for v in vas] == ["Refri 2L", "KS", "Guaraná 300ML", "Cerveja 300ML", "Cerveja 600ML", "Litrão 1L"]
     # 600ML: 3 + 2 + 1 engradados de 24 (a Spaten descartável não conta).
-    assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 300ML que volta (23 garrafas)", "1 CX")
+    assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 300ML que volta (23 garrafas)", "23 UN")
     assert core.texto_vasilhame(vas[4]) == ("Vasilhame Cerveja 600ML que volta (144 garrafas)", "6 CX")
     # Litrão: 2 engradados de 12 + 6 garrafas soltas.
     assert core.texto_vasilhame(vas[5]) == ("Vasilhame Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN")
@@ -487,3 +487,15 @@ def test_guarana_300ml_casco_de_24_garrafas():
     itens = [{"ref": "1", "nome": "", "qtd": 30.0}, {"ref": "2", "nome": "", "qtd": 1.0}]
     v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
     assert core.texto_vasilhame(v) == ("Vasilhame Guaraná 300ML que volta (42 garrafas)", "1 CX + 18 UN")
+
+
+def test_cerveja_300ml_casco_de_24_garrafas():
+    cadastro = {
+        "1": "CERV SKOL 300ML RET. CX 23X1",
+        "2": "CERV ORIGINAL LITRINHO 300ML CX 23X1",
+        "3": "CERV BRAHMA CHOPP 300ML RET. UN",
+    }
+    # 1 caixa de 23 + 1 caixa de 23 + 2 soltas = 48 garrafas = 2 cascos de 24.
+    itens = [{"ref": "1", "nome": "", "qtd": 1.0}, {"ref": "2", "nome": "", "qtd": 1.0}, {"ref": "3", "nome": "", "qtd": 2.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame Cerveja 300ML que volta (48 garrafas)", "2 CX")

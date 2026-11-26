@@ -365,7 +365,8 @@ TIPOS_VASILHAME = [
     ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b"), 24),
     # Cerveja 300ML retornável (litrinho: Skol, Brahma Chopp, Antarctica, Original...).
     # A Original Litrinho não tem RET no nome, então LITRINHO também conta.
-    ("Cerveja 300ML", re.compile(r"^CERV\b(?=.*\b300ML\b)(?=.*\b(RET|LITRINHO)\b)"), None),
+    # Todos juntos numa linha só, casco de 24.
+    ("Cerveja 300ML", re.compile(r"^CERV\b(?=.*\b300ML\b)(?=.*\b(RET|LITRINHO)\b)"), 24),
     # Cerveja 600ML retornável (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
     # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
     # A Amstel 600ML volta junto com as da Ambev; a Heineken tem casco próprio (abaixo).

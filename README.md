@@ -68,7 +68,7 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
   - **Guaraná 300ML**: Guaraná 300ML RET (a cerveja litrinho 300ML tem linha própria). O casco leva **24 garrafas**: soma as garrafas e divide por 24.
 
   Em CERVEJAS RETORNÁVEIS:
-  - **Cerveja 300ML**: os litrinhos retornáveis (Skol, Brahma Chopp, Antarctica, Original Litrinho). A Original Litrinho entra mesmo sem RET no nome.
+  - **Cerveja 300ML**: os litrinhos retornáveis (Skol, Brahma Chopp, Antarctica, Original Litrinho). A Original Litrinho entra mesmo sem RET no nome. Todos juntos numa linha só, casco de **24 garrafas** (soma as garrafas e divide por 24).
   - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Amstel volta junto com as da Ambev. A Spaten DESC (descartável) não conta.
   - **Heineken 600ML**: casco próprio, linha separada (conta toda Heineken 600ML, menos a DESC).
   - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Glacial).
