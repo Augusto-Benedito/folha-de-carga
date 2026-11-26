@@ -465,3 +465,11 @@ def test_linha_de_destilados_no_fim_de_destilados(tmp_path):
     col_a = [c.value for c in load_workbook(final).active["A"]]
     j = col_a.index("ICES")
     assert col_a[j - 1] == "Vasilhame Destilados que volta (43 garrafas)"
+
+
+def test_destilados_casco_de_12_garrafas():
+    cadastro = {"1": "CACHAÇA 51 965ML UN", "2": "RECORD FERNET 960ML CX 6X1"}
+    # 12 garrafas soltas de 51 = 1 casco cheio; 3 caixas de 6 de Record = 18 garrafas.
+    itens = [{"ref": "1", "nome": "", "qtd": 12.0}, {"ref": "2", "nome": "", "qtd": 3.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame Destilados que volta (30 garrafas)", "2 CX + 6 UN")

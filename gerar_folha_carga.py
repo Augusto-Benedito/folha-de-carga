@@ -373,7 +373,7 @@ TIPOS_VASILHAME = [
     # Cerveja litrão 1L retornável. O Amstel Litrão tem casco próprio (abaixo).
     ("Litrão 1L", re.compile(r"^CERV\b(?!.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
     ("Amstel Litrão 1L", re.compile(r"^CERV\b(?=.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
-    # Destilados retornáveis (garrafa de vidro), todos numa linha só:
+    # Destilados retornáveis (garrafa de vidro), todos numa linha só, casco de 12:
     # Cachaça 51 965ML (normal, Ouro, Seleção), Velho Barreiro 910ML, Villa Velha 965ML
     # e os Record de 900/960ML (o Corote Record e a Vodka Record 500ML não contam).
     (
@@ -384,7 +384,7 @@ TIPOS_VASILHAME = [
             r"|\bVILL?A VELHA\b.*\b965ML\b"
             r"|^RECORD\b.*\b(900|960)ML\b"
         ),
-        None,
+        12,  # o casco leva 12 garrafas
     ),
 ]
 
