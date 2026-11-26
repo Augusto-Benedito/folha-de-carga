@@ -61,7 +61,7 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
 - **(FD)** = fardo de 12 (nos produtos de 1L ou mais, fardo de 6). Fardo de outro tamanho sai como (C/6), (C/18) etc. Ex.: Sprite Zero 350ML só tem FD 6X1, então sai `(C/6)`, nunca `(FD)`.
 - **(CX)** e **(UN)**: caixa e unidade. Se o mesmo produto tem mais de um tamanho de caixa, a de 12 (ou, sem ela, a maior) fica (CX) e as outras viram (C/n).
 - **Vasilhames que devem voltar:** no fim da seção dos produtos aparece uma linha em destaque para cada vasilhame da carga, na ordem do mapa. Em RETORNÁVEIS:
-  - **Coca 2L**: Coca-Cola 2L RET, normal e zero.
+  - **Refri 2L**: todo refrigerante 2L RET (Coca, Coca Zero, Fanta Laranja, Fanta Uva...). O casco leva **12 garrafas**: o programa soma as garrafas (FD 6X1 = 6) e divide por 12; o que sobra sai como UN. Ex.: 7 FD = 42 garrafas = `3 CX + 6 UN`.
   - **KS**: todo produto com "KS" no nome (Coca KS, Coca Zero KS, Fanta KS, Sprite KS...).
   - **Guaraná 300ML**: Guaraná 300ML RET (a cerveja litrinho 300ML não conta).
 
@@ -69,7 +69,7 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
   - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Spaten DESC (descartável) e a Heineken 600ML (sem RET no nome) não contam.
   - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Glacial).
 
-  Ex.: `Vasilhame KS que volta (245 garrafas) — 10 CX + 5 UN`. Cada CX/FD conta como um engradado e as garrafas são calculadas pelo tamanho da caixa no cadastro (CX 24X1 = 24). Essas linhas não entram no TOTAL. Para incluir outro vasilhame, acrescente uma regra em `TIPOS_VASILHAME` no `gerar_folha_carga.py`.
+  Ex.: `Vasilhame KS que volta (245 garrafas) — 10 CX + 5 UN`. Nos outros vasilhames, cada CX/FD conta como um engradado e as garrafas são calculadas pelo tamanho da caixa no cadastro (CX 24X1 = 24). Essas linhas não entram no TOTAL. Para incluir outro vasilhame, acrescente uma regra em `TIPOS_VASILHAME` no `gerar_folha_carga.py`.
 - Cada produto tem um quadradinho ☐ na coluna **OK**, para quem carrega ir marcando o que já subiu no caminhão.
 
 ## Pelo terminal

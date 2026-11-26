@@ -244,13 +244,14 @@ def _vasilhames(itens=ITENS_RET, cadastro=CADASTRO_RET):
 def test_tipo_de_vasilhame_pelo_nome():
     assert core.tipo_vasilhame("COCA COLA KS 290ML RET") == "KS"
     assert core.tipo_vasilhame("SPRITE KS 290ML RET") == "KS"
-    assert core.tipo_vasilhame("COCA COLA 2L RET") == "Coca 2L"
-    assert core.tipo_vasilhame("COCA COLA ZERO 2L RET") == "Coca 2L"
+    assert core.tipo_vasilhame("COCA COLA 2L RET") == "Refri 2L"
+    assert core.tipo_vasilhame("COCA COLA ZERO 2L RET") == "Refri 2L"
+    assert core.tipo_vasilhame("FANTA LARANJA 2L RET") == "Refri 2L"
+    assert core.tipo_vasilhame("FANTA UVA 2L RET") == "Refri 2L"
     assert core.tipo_vasilhame("GUARANA ANTARCTICA 300ML RET") == "Guaraná 300ML"
     assert core.tipo_vasilhame("GUARANÁ ANTARCTICA 300ML RET") == "Guaraná 300ML"
     # Não são vasilhame (por enquanto):
     assert core.tipo_vasilhame("COCA COLA 2L") is None  # 2L descartável
-    assert core.tipo_vasilhame("FANTA LARANJA 2L RET") is None
     assert core.tipo_vasilhame("CERV ANTARCTICA 300ML RET.") is None  # cerveja litrinho
     # Cervejas 600ML e litrão retornáveis:
     assert core.tipo_vasilhame("CERV SKOL 600ML RET") == "Cerveja 600ML"
@@ -270,10 +271,21 @@ def test_vasilhame_ks_conta_coca_fanta_sprite_ks():
     assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (245 garrafas)", "10 CX + 5 UN")
 
 
-def test_vasilhame_coca_2l_normal_e_zero():
-    v = _vasilhames()["Coca 2L"]
-    # 4 + 2 engradados de 6 = 36 garrafas. Fanta 2L RET não conta.
-    assert core.texto_vasilhame(v) == ("Vasilhame Coca 2L que volta (36 garrafas)", "6 FD")
+def test_vasilhame_refri_2l_casco_de_12():
+    v = _vasilhames()["Refri 2L"]
+    # Coca 4 FD + Coca Zero 2 FD + Fanta 1 FD, de 6 garrafas = 42 garrafas
+    # = 3 cascos de 12 + 6 garrafas soltas.
+    assert core.texto_vasilhame(v) == ("Vasilhame Refri 2L que volta (42 garrafas)", "3 CX + 6 UN")
+
+
+def test_vasilhame_refri_2l_conta_exata_e_unidades():
+    cadastro = {"20": "COCA COLA 2L RET FD 6X1", "23": "COCA COLA 2L RET UN"}
+    itens = [{"ref": "20", "nome": "", "qtd": 4.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame Refri 2L que volta (24 garrafas)", "2 CX")
+    itens = [{"ref": "23", "nome": "", "qtd": 5.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame Refri 2L que volta (5 garrafas)", "5 UN")
 
 
 def test_vasilhame_guarana_300ml():
@@ -284,13 +296,14 @@ def test_vasilhame_guarana_300ml():
 
 def test_vasilhames_na_ordem_do_mapa():
     assert [v["nome"] for v in core.conta_vasilhames(ITENS_RET, _por_ref(CADASTRO_RET))] == [
-        "Coca 2L", "KS", "Guaraná 300ML"
+        "Refri 2L", "KS", "Guaraná 300ML"
     ]
 
 
 def test_sem_retornavel_nao_tem_vasilhame():
-    itens = [{"ref": "22", "nome": "", "qtd": 4.0}]
-    assert core.conta_vasilhames(itens, _por_ref(CADASTRO_RET)) == []
+    cadastro = {"1": "COCA COLA 2L FD 6X1", "2": "SPRITE 350ML FD 12X1"}  # 2L descartável não volta
+    itens = [{"ref": "1", "nome": "", "qtd": 4.0}, {"ref": "2", "nome": "", "qtd": 3.0}]
+    assert core.conta_vasilhames(itens, _por_ref(cadastro)) == []
 
 
 def test_vasilhame_sem_tamanho_de_caixa_gera_aviso():
@@ -311,11 +324,11 @@ def test_linhas_de_vasilhame_no_fim_de_retornaveis_e_fora_do_total(tmp_path):
 
     ws = load_workbook(final).active
     col_a = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
-    i = col_a.index("Vasilhame Coca 2L que volta (36 garrafas)")
+    i = col_a.index("Vasilhame Refri 2L que volta (42 garrafas)")
     # As três linhas ficam juntas, depois de todos os retornáveis e antes da próxima seção.
     assert col_a[i - 1] == "Guarana Antarctica 300ML RET"
     assert col_a[i:i + 4] == [
-        "Vasilhame Coca 2L que volta (36 garrafas)",
+        "Vasilhame Refri 2L que volta (42 garrafas)",
         "Vasilhame KS que volta (245 garrafas)",
         "Vasilhame Guaraná 300ML que volta (171 garrafas)",
         "CERVEJAS RETORNÁVEIS",
@@ -349,7 +362,7 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
         {"ref": "70", "nome": "", "qtd": 1.0},
     ]
     vas = core.conta_vasilhames(itens, _por_ref(cadastro))
-    assert [v["nome"] for v in vas] == ["Coca 2L", "KS", "Guaraná 300ML", "Cerveja 600ML", "Litrão 1L"]
+    assert [v["nome"] for v in vas] == ["Refri 2L", "KS", "Guaraná 300ML", "Cerveja 600ML", "Litrão 1L"]
     # 600ML: 3 + 2 + 1 engradados de 24 (a Spaten descartável não conta).
     assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 600ML que volta (144 garrafas)", "6 CX")
     # Litrão: 2 engradados de 12 + 6 garrafas soltas.
@@ -361,7 +374,7 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
     _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 52.0, vasilhames=vas)
     col_a = [c.value for c in load_workbook(final).active["A"]]
 
-    # Coca 2L, KS e Guaraná continuam no fim de RETORNÁVEIS...
+    # Refri 2L, KS e Guaraná continuam no fim de RETORNÁVEIS...
     i = col_a.index("CERVEJAS RETORNÁVEIS")
     assert col_a[i - 1] == "Vasilhame Guaraná 300ML que volta (171 garrafas)"
     # ...e as cervejas ficam no fim de CERVEJAS RETORNÁVEIS, antes de DESTILADOS.

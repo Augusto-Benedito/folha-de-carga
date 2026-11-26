@@ -351,26 +351,30 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
 # Vasilhames: a garrafa retornável que vai cheia no caminhão volta vazia.
 # A folha mostra, no fim da seção dos produtos (RETORNÁVEIS, CERVEJAS RETORNÁVEIS),
 # quanto de cada vasilhame deve voltar.
-# (nome na folha, regra pelo nome do produto). A ordem aqui é a ordem na folha (a do mapa).
+# (nome na folha, regra pelo nome do produto, garrafas por casco).
+# Garrafas por casco = None: cada CX/FD vendida é um casco (o tamanho do cadastro).
+# Com um número: soma as garrafas e divide pelo casco (o que sobra sai como UN).
+# A ordem aqui é a ordem na folha (a do mapa).
 TIPOS_VASILHAME = [
-    # Coca-Cola 2L retornável, normal e zero.
-    ("Coca 2L", re.compile(r"^COCA\b.*\b2L\b.*\bRET\b")),
+    # Todo refrigerante 2L retornável (Coca, Coca Zero, Fanta...). O casco leva 12 garrafas,
+    # mesmo vendendo em FD 6X1.
+    ("Refri 2L", re.compile(r"^(?!CERV\b)(?=.*\b2L\b)(?=.*\bRET\b)"), 12),
     # Tudo que é KS: Coca, Coca Zero, Fanta, Sprite... KS 290ML.
-    ("KS", re.compile(r"\bKS\b")),
+    ("KS", re.compile(r"\bKS\b"), None),
     # Guaraná 300ML retornável (não confundir com a cerveja litrinho 300ML).
-    ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b")),
+    ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b"), None),
     # Cerveja 600ML retornável (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
     # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
-    ("Cerveja 600ML", re.compile(r"^CERV\b(?=.*\b600ML\b)(?=.*\bRET\b)")),
+    ("Cerveja 600ML", re.compile(r"^CERV\b(?=.*\b600ML\b)(?=.*\bRET\b)"), None),
     # Cerveja litrão 1L retornável.
-    ("Litrão 1L", re.compile(r"^CERV\b(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)")),
+    ("Litrão 1L", re.compile(r"^CERV\b(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
 ]
 
 
 def tipo_vasilhame(base):
-    """Nome do vasilhame do produto ('KS', 'Coca 2L'...), ou None se não é um deles."""
+    """Nome do vasilhame do produto ('KS', 'Refri 2L'...), ou None se não é um deles."""
     k = _sem_acento(chave(base))
-    for nome, regra in TIPOS_VASILHAME:
+    for nome, regra, _ in TIPOS_VASILHAME:
         if regra.search(k):
             return nome
     return None
@@ -379,7 +383,7 @@ def tipo_vasilhame(base):
 def conta_vasilhames(itens, por_ref):
     """Soma os vasilhames do PDF. Devolve uma lista (na ordem de TIPOS_VASILHAME,
     só os que aparecem) de dicts:
-    nome = 'KS', 'Coca 2L'...; por_tipo = {'CX': engradados, 'FD': ..., 'UN': garrafas soltas};
+    nome = 'KS', 'Refri 2L'...; por_tipo = {'CX': engradados, 'FD': ..., 'UN': garrafas soltas};
     garrafas = total de garrafas (pelo tamanho da caixa no cadastro);
     chaves = produtos daquele vasilhame (para achar o lugar na folha);
     sem_tamanho = produtos cuja embalagem não diz quantas garrafas tem."""
@@ -407,11 +411,16 @@ def conta_vasilhames(itens, por_ref):
             v["sem_tamanho"].append(nome_bonito(base))
     inteiro = lambda x: int(x) if float(x).is_integer() else x
     saida = []
-    for nome, _ in TIPOS_VASILHAME:
+    for nome, _, por_casco in TIPOS_VASILHAME:
         if nome in contas:
             v = contas[nome]
-            v["por_tipo"] = {t: inteiro(q) for t, q in v["por_tipo"].items()}
             v["garrafas"] = inteiro(v["garrafas"])
+            if por_casco:
+                # Ex.: Refri 2L: 7 FD 6X1 = 42 garrafas = 3 cascos de 12 + 6 garrafas soltas.
+                cascos, soltas = divmod(v["garrafas"], por_casco)
+                v["por_tipo"] = {t: inteiro(q) for t, q in (("CX", cascos), ("UN", soltas)) if q}
+            else:
+                v["por_tipo"] = {t: inteiro(q) for t, q in v["por_tipo"].items()}
             v["sem_tamanho"] = sorted(set(v["sem_tamanho"]))
             saida.append(v)
     return saida
@@ -447,7 +456,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
         folha.append(("item", l))
 
     # Linhas dos vasilhames: no fim da seção onde estão os produtos de cada um
-    # (Coca 2L, KS, Guaraná em RETORNÁVEIS; cervejas em CERVEJAS RETORNÁVEIS).
+    # (Refri 2L, KS, Guaraná em RETORNÁVEIS; cervejas em CERVEJAS RETORNÁVEIS).
     # Sem seções, logo depois do último produto. Não entram no TOTAL.
     onde = {}
     for v in vasilhames or []:
