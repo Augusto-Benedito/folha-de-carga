@@ -379,16 +379,16 @@ TIPOS_VASILHAME = [
     # A Original Litrinho não tem RET no nome, então LITRINHO também conta.
     # Todos juntos numa linha só, casco de 24.
     ("Cerveja 300ML", re.compile(r"^CERV\b(?=.*\b300ML\b)(?=.*\b(RET|LITRINHO)\b)"), 24),
-    # Cerveja 600ML retornável (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
+    # Cerveja 600ML retornável, casco de 24 (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
     # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
     # A Amstel 600ML volta junto com as da Ambev; a Heineken tem casco próprio (abaixo).
-    ("Cerveja 600ML", re.compile(r"^CERV\b(?!.*\bHEINEKEN\b)(?=.*\b600ML\b)(?=.*\bRET\b)"), None),
-    # Heineken 600ML: casco próprio. No mapa ela não tem RET no nome (CERV HEINEKEN 600ML),
+    ("Cerveja 600ML", re.compile(r"^CERV\b(?!.*\bHEINEKEN\b)(?=.*\b600ML\b)(?=.*\bRET\b)"), 24),
+    # Heineken 600ML: casco próprio, de 24. No mapa ela não tem RET no nome (CERV HEINEKEN 600ML),
     # então conta toda Heineken 600ML, menos a descartável (DESC).
-    ("Heineken 600ML", re.compile(r"^CERV\b(?=.*\bHEINEKEN\b)(?=.*\b600ML\b)(?!.*\bDESC\b)"), None),
-    # Cerveja litrão 1L retornável. O Amstel Litrão tem casco próprio (abaixo).
-    ("Litrão 1L", re.compile(r"^CERV\b(?!.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
-    ("Amstel Litrão 1L", re.compile(r"^CERV\b(?=.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
+    ("Heineken 600ML", re.compile(r"^CERV\b(?=.*\bHEINEKEN\b)(?=.*\b600ML\b)(?!.*\bDESC\b)"), 24),
+    # Cerveja litrão 1L retornável, casco de 12. O Amstel Litrão tem casco próprio, também de 12.
+    ("Litrão 1L", re.compile(r"^CERV\b(?!.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), 12),
+    ("Amstel Litrão 1L", re.compile(r"^CERV\b(?=.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), 12),
     # Destilados retornáveis (garrafa de vidro), todos numa linha só, casco de 12:
     # Cachaça 51 965ML (normal, Ouro, Seleção), Velho Barreiro 910ML, Villa Velha 965ML
     # e os Record de 900/960ML (o Corote Record e a Vodka Record 500ML não contam).

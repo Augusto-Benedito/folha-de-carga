@@ -69,10 +69,10 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
 
   Em CERVEJAS RETORNÁVEIS:
   - **Cerveja 300ML**: os litrinhos retornáveis (Skol, Brahma Chopp, Antarctica, Original Litrinho). A Original Litrinho entra mesmo sem RET no nome. Todos juntos numa linha só, casco de **24 garrafas** (soma as garrafas e divide por 24).
-  - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Amstel volta junto com as da Ambev. A Spaten DESC (descartável) não conta.
-  - **Heineken 600ML**: casco próprio, linha separada (conta toda Heineken 600ML, menos a DESC).
-  - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Glacial).
-  - **Amstel Litrão 1L**: casco próprio, linha separada.
+  - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Amstel volta junto com as da Ambev. A Spaten DESC (descartável) não conta. Casco de **24 garrafas**.
+  - **Heineken 600ML**: casco próprio de **24**, linha separada (conta toda Heineken 600ML, menos a DESC).
+  - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Glacial). Casco de **12 garrafas**.
+  - **Amstel Litrão 1L**: casco próprio de **12**, linha separada.
 
   Em DESTILADOS (uma linha só):
   - **Destilados**: Cachaça 51 965ML (normal, Ouro e Seleção), Cachaça Velho Barreiro 910ML, Aguardente Villa Velha 965ML e os Record de 900/960ML (Cana e Mel, Canelinha, Menta, Fernet, Amendoim, Coco, Cacau). O Corote Record e a Vodka Record de 500ML não contam. O casco leva **12 garrafas**: soma as garrafas e divide por 12, como no Refri 2L.

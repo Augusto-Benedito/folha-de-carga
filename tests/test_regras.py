@@ -534,3 +534,19 @@ def test_item_fora_do_mapa_nao_cria_secao_repetida(tmp_path):
     col_a = [c.value for c in load_workbook(final).active["A"]]
     for titulo in ("LATAS", "200ML", "ÁGUAS"):
         assert col_a.count(titulo) == 1, titulo
+
+
+def test_600ml_casco_de_24_e_litrao_casco_de_12():
+    cadastro = {
+        "1": "CERV SKOL 600ML RET UN",
+        "2": "CERV HEINEKEN 600ML CX 12X1",
+        "3": "CERV BRAHMA LITRÃO 1L RET. UN",
+        "4": "CERV AMSTEL LITRÃO 1L RET. CX 6X1",
+    }
+    itens = [{"ref": r, "nome": "", "qtd": q} for r, q in (("1", 30.0), ("2", 4.0), ("3", 13.0), ("4", 5.0))]
+    assert [core.texto_vasilhame(v) for v in core.conta_vasilhames(itens, _por_ref(cadastro))] == [
+        ("Vasilhame Cerveja 600ML que volta (30 garrafas)", "1 CX + 6 UN"),     # 30 = 24 + 6
+        ("Vasilhame Heineken 600ML que volta (48 garrafas)", "2 CX"),           # 4 x 12 = 48 = 2 x 24
+        ("Vasilhame Litrão 1L que volta (13 garrafas)", "1 CX + 1 UN"),         # 13 = 12 + 1
+        ("Vasilhame Amstel Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN"),  # 5 x 6 = 30 = 2 x 12 + 6
+    ]
