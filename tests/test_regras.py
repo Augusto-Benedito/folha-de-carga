@@ -258,15 +258,15 @@ def test_tipo_de_vasilhame_pelo_nome():
     assert core.tipo_vasilhame("CERV BRAHMA CHOPP 300ML RET.") == "Cerveja 300ML"
     assert core.tipo_vasilhame("CERV ORIGINAL LITRINHO 300ML") == "Cerveja 300ML"  # sem RET no nome
     # Cervejas 600ML e litrão retornáveis:
-    assert core.tipo_vasilhame("CERV SKOL 600ML RET") == "Cerveja 600ML"
-    assert core.tipo_vasilhame("CERV BRAHMA CHOPP 600ML RET.") == "Cerveja 600ML"
-    assert core.tipo_vasilhame("CERV ANTARTICA SUB-ZERO 600ML RET") == "Cerveja 600ML"
-    assert core.tipo_vasilhame("CERV SPATEN RET. 600ML") == "Cerveja 600ML"  # RET antes do 600ML
+    assert core.tipo_vasilhame("CERV SKOL 600ML RET") == "600ML"
+    assert core.tipo_vasilhame("CERV BRAHMA CHOPP 600ML RET.") == "600ML"
+    assert core.tipo_vasilhame("CERV ANTARTICA SUB-ZERO 600ML RET") == "600ML"
+    assert core.tipo_vasilhame("CERV SPATEN RET. 600ML") == "600ML"  # RET antes do 600ML
     assert core.tipo_vasilhame("CERV SKOL LITRÃO 1L RET.") == "Litrão 1L"
     assert core.tipo_vasilhame("CERV BRAHMA LITRAO 1L RET.") == "Litrão 1L"
     assert core.tipo_vasilhame("CERV SPATEN DESC 600ML") is None  # descartável
     # Amstel 600ML volta junto com as da Ambev; Heineken 600ML e Amstel Litrão têm casco próprio.
-    assert core.tipo_vasilhame("CERV AMSTEL 600ML RET.") == "Cerveja 600ML"
+    assert core.tipo_vasilhame("CERV AMSTEL 600ML RET.") == "600ML"
     assert core.tipo_vasilhame("CERV HEINEKEN 600ML") == "Heineken 600ML"
     assert core.tipo_vasilhame("CERV HEINEKEN 600ML RET") == "Heineken 600ML"
     assert core.tipo_vasilhame("CERV HEINEKEN DESC 600ML") is None
@@ -372,10 +372,10 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
         {"ref": "70", "nome": "", "qtd": 1.0},
     ]
     vas = core.conta_vasilhames(itens, _por_ref(cadastro))
-    assert [v["nome"] for v in vas] == ["Refri 2L", "KS", "Guaraná 300ML", "Cerveja 300ML", "Cerveja 600ML", "Litrão 1L"]
+    assert [v["nome"] for v in vas] == ["Refri 2L", "KS", "Guaraná 300ML", "Cerveja 300ML", "600ML", "Litrão 1L"]
     # 600ML: 3 + 2 + 1 engradados de 24 (a Spaten descartável não conta).
     assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 300ML que volta (23 garrafas)", "23 UN")
-    assert core.texto_vasilhame(vas[4]) == ("Vasilhame Cerveja 600ML que volta (144 garrafas)", "6 CX")
+    assert core.texto_vasilhame(vas[4]) == ("Vasilhame 600ML que volta (144 garrafas)", "6 CX")
     # Litrão: 2 engradados de 12 + 6 garrafas soltas.
     assert core.texto_vasilhame(vas[5]) == ("Vasilhame Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN")
 
@@ -392,7 +392,7 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
     j = col_a.index("DESTILADOS")
     assert col_a[j - 3:j] == [
         "Vasilhame Cerveja 300ML que volta (23 garrafas)",
-        "Vasilhame Cerveja 600ML que volta (144 garrafas)",
+        "Vasilhame 600ML que volta (144 garrafas)",
         "Vasilhame Litrão 1L que volta (30 garrafas)",
     ]
 
@@ -408,7 +408,7 @@ def test_heineken_e_amstel_litrao_em_linhas_proprias():
     itens = [{"ref": r, "nome": "", "qtd": q} for r, q in (("1", 3.0), ("2", 2.0), ("3", 4.0), ("4", 1.0), ("5", 2.0))]
     vas = core.conta_vasilhames(itens, _por_ref(cadastro))
     assert [core.texto_vasilhame(v) for v in vas] == [
-        ("Vasilhame Cerveja 600ML que volta (120 garrafas)", "5 CX"),  # Skol + Amstel
+        ("Vasilhame 600ML que volta (120 garrafas)", "5 CX"),  # Skol + Amstel
         ("Vasilhame Heineken 600ML que volta (96 garrafas)", "4 CX"),
         ("Vasilhame Litrão 1L que volta (12 garrafas)", "1 CX"),
         ("Vasilhame Amstel Litrão 1L que volta (24 garrafas)", "2 CX"),
@@ -435,6 +435,7 @@ def test_vasilhame_de_destilados():
     sim = [
         "CACHAÇA 51 965ML", "CACHACA 51 OURO 965ML", "CACHAÇA 51 SELEÇÃO 965ML",
         "CACHAÇA VELHO BARREIRO 910ML", "AGUARDENTE VILLA VELHA CARVALHO 965ML",
+        "CACHAÇA 61 970ML RET.", "VODKA MOSCOWITA RET. 965ML", "CACHAÇA JAMEL 965ml",
         "RECORD CANA E MEL 900ML", "RECORD CANELINHA 900ML", "RECORD FERNET 960ML", "RECORD COCO 960ML",
     ]
     nao = [
@@ -545,7 +546,7 @@ def test_600ml_casco_de_24_e_litrao_casco_de_12():
     }
     itens = [{"ref": r, "nome": "", "qtd": q} for r, q in (("1", 30.0), ("2", 4.0), ("3", 13.0), ("4", 5.0))]
     assert [core.texto_vasilhame(v) for v in core.conta_vasilhames(itens, _por_ref(cadastro))] == [
-        ("Vasilhame Cerveja 600ML que volta (30 garrafas)", "1 CX + 6 UN"),     # 30 = 24 + 6
+        ("Vasilhame 600ML que volta (30 garrafas)", "1 CX + 6 UN"),     # 30 = 24 + 6
         ("Vasilhame Heineken 600ML que volta (48 garrafas)", "2 CX"),           # 4 x 12 = 48 = 2 x 24
         ("Vasilhame Litrão 1L que volta (13 garrafas)", "1 CX + 1 UN"),         # 13 = 12 + 1
         ("Vasilhame Amstel Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN"),  # 5 x 6 = 30 = 2 x 12 + 6
@@ -566,3 +567,28 @@ def test_ks_casco_de_24_e_meia_caixa():
     itens = [{"ref": "2", "nome": "", "qtd": 24.0}]
     v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
     assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (24 garrafas)", "1 CX")
+
+
+def test_cachaca_29_volta_no_casco_de_600ml_e_linha_fica_nas_cervejas(tmp_path):
+    from openpyxl import load_workbook
+
+    assert core.tipo_vasilhame("CACHAÇA 29 600ML RET") == "600ML"
+    assert core.tipo_vasilhame("CACHAÇA 61 970ML RET.") == "Destilados"
+    cadastro = {
+        "1": "CERV SKOL 600ML RET CX 24X1",
+        "2": "CACHAÇA 29 600ML RET UN",
+        "3": "CACHAÇA 51 965ML UN",
+    }
+    itens = [{"ref": r, "nome": "", "qtd": q} for r, q in (("1", 1.0), ("2", 6.0), ("3", 2.0))]
+    vas = core.conta_vasilhames(itens, _por_ref(cadastro))
+    assert core.texto_vasilhame(vas[0]) == ("Vasilhame 600ML que volta (30 garrafas)", "1 CX + 6 UN")
+
+    pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
+    linhas, *_ = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 9.0, vasilhames=vas)
+    col_a = [c.value for c in load_workbook(final).active["A"]]
+    # A linha do 600ML fica no fim de CERVEJAS RETORNÁVEIS, não vai para DESTILADOS.
+    assert col_a.index("Vasilhame 600ML que volta (30 garrafas)") == col_a.index("DESTILADOS") - 1
+    # A de destilados fica no fim de DESTILADOS (aqui, a última linha antes do TOTAL).
+    assert col_a[-2] == "Vasilhame Destilados que volta (2 garrafas)"

@@ -379,10 +379,15 @@ TIPOS_VASILHAME = [
     # A Original Litrinho não tem RET no nome, então LITRINHO também conta.
     # Todos juntos numa linha só, casco de 24.
     ("Cerveja 300ML", re.compile(r"^CERV\b(?=.*\b300ML\b)(?=.*\b(RET|LITRINHO)\b)"), 24),
-    # Cerveja 600ML retornável, casco de 24 (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
+    # Garrafa 600ML retornável, casco de 24: cervejas (Skol, Brahma, Antarctica, Original,
+    # Amstel, Spaten RET...) e a Cachaça 29 600ML RET, que usa a mesma garrafa.
     # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
     # A Amstel 600ML volta junto com as da Ambev; a Heineken tem casco próprio (abaixo).
-    ("Cerveja 600ML", re.compile(r"^CERV\b(?!.*\bHEINEKEN\b)(?=.*\b600ML\b)(?=.*\bRET\b)"), 24),
+    (
+        "600ML",
+        re.compile(r"^(CERV\b(?!.*\bHEINEKEN\b)|CACHACA 29\b)(?=.*\b600ML\b)(?=.*\bRET\b)"),
+        24,
+    ),
     # Heineken 600ML: casco próprio, de 24. No mapa ela não tem RET no nome (CERV HEINEKEN 600ML),
     # então conta toda Heineken 600ML, menos a descartável (DESC).
     ("Heineken 600ML", re.compile(r"^CERV\b(?=.*\bHEINEKEN\b)(?=.*\b600ML\b)(?!.*\bDESC\b)"), 24),
@@ -390,7 +395,8 @@ TIPOS_VASILHAME = [
     ("Litrão 1L", re.compile(r"^CERV\b(?!.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), 12),
     ("Amstel Litrão 1L", re.compile(r"^CERV\b(?=.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), 12),
     # Destilados retornáveis (garrafa de vidro), todos numa linha só, casco de 12:
-    # Cachaça 51 965ML (normal, Ouro, Seleção), Velho Barreiro 910ML, Villa Velha 965ML
+    # Cachaça 51 965ML (normal, Ouro, Seleção), Velho Barreiro 910ML, Villa Velha 965ML,
+    # Cachaça 61 970ML, Vodka Moscowita 965ML, Cachaça Jamel 965ML
     # e os Record de 900/960ML (o Corote Record e a Vodka Record 500ML não contam).
     (
         "Destilados",
@@ -398,6 +404,9 @@ TIPOS_VASILHAME = [
             r"^(CACHACA|AGUARDENTE)\b.*\b51\b.*\b965ML\b"
             r"|\bVELHO BARREIRO\b.*\b910ML\b"
             r"|\bVILL?A VELHA\b.*\b965ML\b"
+            r"|^CACHACA 61\b.*\b970ML\b"
+            r"|\bMOSCOWITA\b.*\b965ML\b"
+            r"|^CACHACA JAMEL\b.*\b965ML\b"
             r"|^RECORD\b.*\b(900|960)ML\b"
         ),
         12,  # o casco leva 12 garrafas
@@ -489,18 +498,21 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
             folha.append(("secao", TITULO_SECAO.get(sec_atual, sec_atual)))
         folha.append(("item", l))
 
-    # Linhas dos vasilhames: no fim da seção onde estão os produtos de cada um
-    # (Refri 2L, KS, Guaraná em RETORNÁVEIS; cervejas em CERVEJAS RETORNÁVEIS).
+    # Linhas dos vasilhames: no fim da seção do primeiro produto de cada um
+    # (Refri 2L, KS, Guaraná em RETORNÁVEIS; cervejas em CERVEJAS RETORNÁVEIS — mesmo que
+    # a Cachaça 29 600ML, que está em DESTILADOS, volte no casco de 600ML).
     # Sem seções, logo depois do último produto. Não entram no TOTAL.
     onde = {}
     for v in vasilhames or []:
         pos = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in v["chaves"]]
         if not pos:
             continue
-        fim = pos[-1] + 1
         if com_secao:
+            fim = pos[0] + 1
             while fim < len(folha) and folha[fim][0] == "item":
                 fim += 1
+        else:
+            fim = pos[-1] + 1
         onde.setdefault(fim, []).append(("vasilhame", texto_vasilhame(v)))
     for fim in sorted(onde, reverse=True):  # de trás para frente, para não mudar as posições
         folha[fim:fim] = onde[fim]
