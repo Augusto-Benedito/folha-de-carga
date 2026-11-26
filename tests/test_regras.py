@@ -252,7 +252,11 @@ def test_tipo_de_vasilhame_pelo_nome():
     assert core.tipo_vasilhame("GUARANÁ ANTARCTICA 300ML RET") == "Guaraná 300ML"
     # Não são vasilhame (por enquanto):
     assert core.tipo_vasilhame("COCA COLA 2L") is None  # 2L descartável
-    assert core.tipo_vasilhame("CERV ANTARCTICA 300ML RET.") is None  # cerveja litrinho
+    # Cerveja litrinho 300ML é vasilhame próprio, não entra no Guaraná 300ML:
+    assert core.tipo_vasilhame("CERV ANTARCTICA 300ML RET.") == "Cerveja 300ML"
+    assert core.tipo_vasilhame("CERV SKOL 300ML RET.") == "Cerveja 300ML"
+    assert core.tipo_vasilhame("CERV BRAHMA CHOPP 300ML RET.") == "Cerveja 300ML"
+    assert core.tipo_vasilhame("CERV ORIGINAL LITRINHO 300ML") == "Cerveja 300ML"  # sem RET no nome
     # Cervejas 600ML e litrão retornáveis:
     assert core.tipo_vasilhame("CERV SKOL 600ML RET") == "Cerveja 600ML"
     assert core.tipo_vasilhame("CERV BRAHMA CHOPP 600ML RET.") == "Cerveja 600ML"
@@ -302,7 +306,7 @@ def test_vasilhame_guarana_300ml():
 
 def test_vasilhames_na_ordem_do_mapa():
     assert [v["nome"] for v in core.conta_vasilhames(ITENS_RET, _por_ref(CADASTRO_RET))] == [
-        "Refri 2L", "KS", "Guaraná 300ML"
+        "Refri 2L", "KS", "Guaraná 300ML", "Cerveja 300ML"
     ]
 
 
@@ -368,11 +372,12 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
         {"ref": "70", "nome": "", "qtd": 1.0},
     ]
     vas = core.conta_vasilhames(itens, _por_ref(cadastro))
-    assert [v["nome"] for v in vas] == ["Refri 2L", "KS", "Guaraná 300ML", "Cerveja 600ML", "Litrão 1L"]
+    assert [v["nome"] for v in vas] == ["Refri 2L", "KS", "Guaraná 300ML", "Cerveja 300ML", "Cerveja 600ML", "Litrão 1L"]
     # 600ML: 3 + 2 + 1 engradados de 24 (a Spaten descartável não conta).
-    assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 600ML que volta (144 garrafas)", "6 CX")
+    assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 300ML que volta (23 garrafas)", "1 CX")
+    assert core.texto_vasilhame(vas[4]) == ("Vasilhame Cerveja 600ML que volta (144 garrafas)", "6 CX")
     # Litrão: 2 engradados de 12 + 6 garrafas soltas.
-    assert core.texto_vasilhame(vas[4]) == ("Vasilhame Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN")
+    assert core.texto_vasilhame(vas[5]) == ("Vasilhame Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN")
 
     pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
@@ -385,7 +390,8 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
     assert col_a[i - 1] == "Vasilhame Guaraná 300ML que volta (171 garrafas)"
     # ...e as cervejas ficam no fim de CERVEJAS RETORNÁVEIS, antes de DESTILADOS.
     j = col_a.index("DESTILADOS")
-    assert col_a[j - 2:j] == [
+    assert col_a[j - 3:j] == [
+        "Vasilhame Cerveja 300ML que volta (23 garrafas)",
         "Vasilhame Cerveja 600ML que volta (144 garrafas)",
         "Vasilhame Litrão 1L que volta (30 garrafas)",
     ]
