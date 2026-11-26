@@ -261,7 +261,13 @@ def test_tipo_de_vasilhame_pelo_nome():
     assert core.tipo_vasilhame("CERV SKOL LITRÃO 1L RET.") == "Litrão 1L"
     assert core.tipo_vasilhame("CERV BRAHMA LITRAO 1L RET.") == "Litrão 1L"
     assert core.tipo_vasilhame("CERV SPATEN DESC 600ML") is None  # descartável
-    assert core.tipo_vasilhame("CERV HEINEKEN 600ML") is None  # sem RET no nome
+    # Amstel 600ML volta junto com as da Ambev; Heineken 600ML e Amstel Litrão têm casco próprio.
+    assert core.tipo_vasilhame("CERV AMSTEL 600ML RET.") == "Cerveja 600ML"
+    assert core.tipo_vasilhame("CERV HEINEKEN 600ML") == "Heineken 600ML"
+    assert core.tipo_vasilhame("CERV HEINEKEN 600ML RET") == "Heineken 600ML"
+    assert core.tipo_vasilhame("CERV HEINEKEN DESC 600ML") is None
+    assert core.tipo_vasilhame("CERV AMSTEL LITRÃO 1L RET.") == "Amstel Litrão 1L"
+    assert core.tipo_vasilhame("CERV GLACIAL LITRÃO 1L RET.") == "Litrão 1L"
 
 
 def test_vasilhame_ks_conta_coca_fanta_sprite_ks():
@@ -382,4 +388,22 @@ def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
     assert col_a[j - 2:j] == [
         "Vasilhame Cerveja 600ML que volta (144 garrafas)",
         "Vasilhame Litrão 1L que volta (30 garrafas)",
+    ]
+
+
+def test_heineken_e_amstel_litrao_em_linhas_proprias():
+    cadastro = {
+        "1": "CERV SKOL 600ML RET CX 24X1",
+        "2": "CERV AMSTEL 600ML RET. CX 24X1",
+        "3": "CERV HEINEKEN 600ML CX 24X1",
+        "4": "CERV SKOL LITRÃO 1L RET. CX 12X1",
+        "5": "CERV AMSTEL LITRÃO 1L RET. CX 12X1",
+    }
+    itens = [{"ref": r, "nome": "", "qtd": q} for r, q in (("1", 3.0), ("2", 2.0), ("3", 4.0), ("4", 1.0), ("5", 2.0))]
+    vas = core.conta_vasilhames(itens, _por_ref(cadastro))
+    assert [core.texto_vasilhame(v) for v in vas] == [
+        ("Vasilhame Cerveja 600ML que volta (120 garrafas)", "5 CX"),  # Skol + Amstel
+        ("Vasilhame Heineken 600ML que volta (96 garrafas)", "4 CX"),
+        ("Vasilhame Litrão 1L que volta (12 garrafas)", "1 CX"),
+        ("Vasilhame Amstel Litrão 1L que volta (24 garrafas)", "2 CX"),
     ]

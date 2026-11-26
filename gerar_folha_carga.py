@@ -365,9 +365,14 @@ TIPOS_VASILHAME = [
     ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b"), None),
     # Cerveja 600ML retornável (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
     # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
-    ("Cerveja 600ML", re.compile(r"^CERV\b(?=.*\b600ML\b)(?=.*\bRET\b)"), None),
-    # Cerveja litrão 1L retornável.
-    ("Litrão 1L", re.compile(r"^CERV\b(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
+    # A Amstel 600ML volta junto com as da Ambev; a Heineken tem casco próprio (abaixo).
+    ("Cerveja 600ML", re.compile(r"^CERV\b(?!.*\bHEINEKEN\b)(?=.*\b600ML\b)(?=.*\bRET\b)"), None),
+    # Heineken 600ML: casco próprio. No mapa ela não tem RET no nome (CERV HEINEKEN 600ML),
+    # então conta toda Heineken 600ML, menos a descartável (DESC).
+    ("Heineken 600ML", re.compile(r"^CERV\b(?=.*\bHEINEKEN\b)(?=.*\b600ML\b)(?!.*\bDESC\b)"), None),
+    # Cerveja litrão 1L retornável. O Amstel Litrão tem casco próprio (abaixo).
+    ("Litrão 1L", re.compile(r"^CERV\b(?!.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
+    ("Amstel Litrão 1L", re.compile(r"^CERV\b(?=.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
 ]
 
 

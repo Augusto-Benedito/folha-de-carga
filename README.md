@@ -66,8 +66,10 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
   - **Guaraná 300ML**: Guaraná 300ML RET (a cerveja litrinho 300ML não conta).
 
   Em CERVEJAS RETORNÁVEIS:
-  - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Spaten DESC (descartável) e a Heineken 600ML (sem RET no nome) não contam.
-  - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Glacial).
+  - **Cerveja 600ML**: toda cerveja 600ML com RET no nome (Skol, Brahma, Antarctica, Original, Amstel, Sub-Zero, Spaten RET...). A Amstel volta junto com as da Ambev. A Spaten DESC (descartável) não conta.
+  - **Heineken 600ML**: casco próprio, linha separada (conta toda Heineken 600ML, menos a DESC).
+  - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Glacial).
+  - **Amstel Litrão 1L**: casco próprio, linha separada.
 
   Ex.: `Vasilhame KS que volta (245 garrafas) — 10 CX + 5 UN`. Nos outros vasilhames, cada CX/FD conta como um engradado e as garrafas são calculadas pelo tamanho da caixa no cadastro (CX 24X1 = 24). Essas linhas não entram no TOTAL. Para incluir outro vasilhame, acrescente uma regra em `TIPOS_VASILHAME` no `gerar_folha_carga.py`.
 - Cada produto tem um quadradinho ☐ na coluna **OK**, para quem carrega ir marcando o que já subiu no caminhão.
