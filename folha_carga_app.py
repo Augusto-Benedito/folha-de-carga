@@ -95,6 +95,14 @@ def texto_detalhes(r):
     if r["fonte_pequena"]:
         L.append("")
         L.append("ATENÇÃO: muitos itens, a fonte ficou pequena. Considere imprimir em 3 páginas.")
+    v = r.get("vasilhame_ks")
+    if v:
+        L.append("")
+        produto, qtd = core.texto_vasilhame(v)
+        L.append(f"{produto}: {qtd}")
+        if v["sem_tamanho"]:
+            L.append("ATENÇÃO - KS sem tamanho de caixa no cadastro (não entraram nas garrafas):")
+            L += [f"  - {n}" for n in v["sem_tamanho"]]
     if r.get("aviso_historico"):
         L.append("")
         L.append("ATENÇÃO: " + r["aviso_historico"])

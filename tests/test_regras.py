@@ -205,3 +205,71 @@ def test_historico_aberto_no_excel_nao_impede_a_folha(tmp_path, monkeypatch):
     assert os.path.exists(r["saida"])  # a folha saiu
     assert r["historico"] is None
     assert "aberto no Excel" in r["aviso_historico"]
+
+
+CADASTRO_KS = {
+    "10": "COCA COLA KS 290ML RET CX 24X1",
+    "11": "COCA COLA ZERO KS 290ML RET CX 24X1",
+    "12": "FANTA LARANJA KS 290ML RET CX 24X1",
+    "13": "SPRITE KS 290ML RET UN",
+    "20": "COCA COLA 2L RET FD 6X1",
+    "30": "GUARANA ANTARCTICA 300ML RET CX 24X1",
+}
+ITENS_KS = [
+    {"ref": "20", "nome": "", "qtd": 4.0},
+    {"ref": "10", "nome": "", "qtd": 5.0},
+    {"ref": "11", "nome": "", "qtd": 2.0},
+    {"ref": "12", "nome": "", "qtd": 3.0},
+    {"ref": "13", "nome": "", "qtd": 5.0},
+    {"ref": "30", "nome": "", "qtd": 7.0},
+]
+
+
+def _por_ref(cadastro):
+    return {ref: core.separa_nome(nome) for ref, nome in cadastro.items()}
+
+
+def test_vasilhame_ks_conta_coca_fanta_sprite_ks():
+    v = core.conta_vasilhame_ks(ITENS_KS, _por_ref(CADASTRO_KS))
+    # 5 + 2 + 3 engradados de 24 = 240 garrafas, mais 5 garrafas soltas de Sprite KS.
+    # Coca 2L e Guaraná 300ML são retornáveis mas NÃO são KS: não contam.
+    assert (v["cx"], v["un"], v["garrafas"]) == (10, 5, 245)
+    assert v["sem_tamanho"] == []
+    assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (245 garrafas)", "10 CX + 5 UN")
+
+
+def test_sem_ks_nao_tem_vasilhame():
+    itens = [{"ref": "20", "nome": "", "qtd": 4.0}]
+    assert core.conta_vasilhame_ks(itens, _por_ref(CADASTRO_KS)) is None
+
+
+def test_ks_sem_tamanho_de_caixa_gera_aviso():
+    itens = [{"ref": "99", "nome": "COCA COLA KS 290ML RET CX", "qtd": 2.0}]
+    v = core.conta_vasilhame_ks(itens, {})
+    assert v["sem_tamanho"] == ["Coca Cola KS 290ML RET"]
+    assert v["garrafas"] == 0
+
+
+def test_linha_do_vasilhame_no_fim_de_retornaveis_e_fora_do_total(tmp_path):
+    from openpyxl import load_workbook
+
+    pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
+    cadastro = dict(CADASTRO_KS, **{"40": "CERV SKOL 600ML RET CX 24X1"})
+    itens = ITENS_KS + [{"ref": "40", "nome": "", "qtd": 1.0}]
+    linhas, *_ = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
+    v = core.conta_vasilhame_ks(itens, _por_ref(cadastro))
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 27.0, vasilhame=v)
+
+    ws = load_workbook(final).active
+    col_a = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
+    i_vas = col_a.index("Vasilhame KS que volta (245 garrafas)")
+    # Fica depois de todos os retornáveis (incluindo o Guaraná 300ML) e antes da próxima seção.
+    assert col_a[i_vas - 1] == "Guarana Antarctica 300ML RET"
+    assert col_a[i_vas + 1] == "CERVEJAS RETORNÁVEIS"
+    linha = i_vas + 1
+    assert ws.cell(row=linha, column=2).value == "10 CX + 5 UN"
+    assert ws.cell(row=linha, column=4).value is None  # não soma no TOTAL
+    # O TOTAL continua batendo com o sistema: 4 + 5 + 2 + 3 + 5 + 7 + 1 = 27.
+    numeros = [ws.cell(row=r, column=4).value for r in range(2, ws.max_row)]
+    assert sum(n for n in numeros if isinstance(n, (int, float))) == 27

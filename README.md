@@ -60,6 +60,7 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
 - Uma linha por produto, nome sem a embalagem; embalagens diferentes do mesmo produto ficam na mesma linha. Ex.: `Sprite 350ML — 12(FD); 2(C/6)`.
 - **(FD)** = fardo de 12 (nos produtos de 1L ou mais, fardo de 6). Fardo de outro tamanho sai como (C/6), (C/18) etc. Ex.: Sprite Zero 350ML só tem FD 6X1, então sai `(C/6)`, nunca `(FD)`.
 - **(CX)** e **(UN)**: caixa e unidade. Se o mesmo produto tem mais de um tamanho de caixa, a de 12 (ou, sem ela, a maior) fica (CX) e as outras viram (C/n).
+- **Vasilhame KS:** todo produto com "KS" no nome (Coca KS, Coca Zero KS, Fanta KS, Sprite KS...) conta como vasilhame de KS. No fim da seção RETORNÁVEIS aparece uma linha em destaque com o que deve voltar no caminhão. Ex.: `Vasilhame KS que volta (245 garrafas) — 10 CX + 5 UN`. Cada CX conta como um engradado e as garrafas são calculadas pelo tamanho da caixa no cadastro (CX 24X1 = 24). Essa linha não entra no TOTAL.
 - Cada produto tem um quadradinho ☐ na coluna **OK**, para quem carrega ir marcando o que já subiu no caminhão.
 
 ## Pelo terminal
