@@ -348,59 +348,73 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
 
 
 # --------------------------------------------------------------------------
-# Vasilhame de KS: toda garrafa KS (Coca, Fanta, Sprite... KS 290ML) que vai no
-# caminhão volta vazia. A folha mostra quanto vasilhame KS deve voltar.
-RE_KS = re.compile(r"\bKS\b")
+# Vasilhames: a garrafa retornável que vai cheia no caminhão volta vazia.
+# A folha mostra, no fim de RETORNÁVEIS, quanto de cada vasilhame deve voltar.
+# (nome na folha, regra pelo nome do produto). A ordem aqui é a ordem na folha (a do mapa).
+TIPOS_VASILHAME = [
+    # Coca-Cola 2L retornável, normal e zero.
+    ("Coca 2L", re.compile(r"^COCA\b.*\b2L\b.*\bRET\b")),
+    # Tudo que é KS: Coca, Coca Zero, Fanta, Sprite... KS 290ML.
+    ("KS", re.compile(r"\bKS\b")),
+    # Guaraná 300ML retornável (não confundir com a cerveja litrinho 300ML).
+    ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b")),
+]
 
 
-def eh_ks(base):
-    return bool(RE_KS.search(chave(base)))
+def tipo_vasilhame(base):
+    """Nome do vasilhame do produto ('KS', 'Coca 2L'...), ou None se não é um deles."""
+    k = _sem_acento(chave(base))
+    for nome, regra in TIPOS_VASILHAME:
+        if regra.search(k):
+            return nome
+    return None
 
 
-def conta_vasilhame_ks(itens, por_ref):
-    """Soma o vasilhame KS do PDF. Devolve None se não tem KS, ou um dict:
-    cx = engradados (CX/FD), un = garrafas soltas, garrafas = total de garrafas,
-    chaves = produtos KS (para achar o lugar na folha),
-    sem_tamanho = produtos KS cuja embalagem não diz quantas garrafas tem."""
-    cx = un = garrafas = 0
-    chaves, sem_tamanho = set(), []
+def conta_vasilhames(itens, por_ref):
+    """Soma os vasilhames do PDF. Devolve uma lista (na ordem de TIPOS_VASILHAME,
+    só os que aparecem) de dicts:
+    nome = 'KS', 'Coca 2L'...; por_tipo = {'CX': engradados, 'FD': ..., 'UN': garrafas soltas};
+    garrafas = total de garrafas (pelo tamanho da caixa no cadastro);
+    chaves = produtos daquele vasilhame (para achar o lugar na folha);
+    sem_tamanho = produtos cuja embalagem não diz quantas garrafas tem."""
+    contas = {}
     for it in itens:
         if it["ref"] in por_ref:
             base, tipo, arr = por_ref[it["ref"]]
         else:
             base, tipo, arr = separa_nome(it["nome"])
-        if not eh_ks(base):
+        nome = tipo_vasilhame(base)
+        if not nome:
             continue
-        chaves.add(chave(base))
+        v = contas.setdefault(
+            nome, {"nome": nome, "por_tipo": {}, "garrafas": 0, "chaves": set(), "sem_tamanho": []}
+        )
+        v["chaves"].add(chave(base))
         q = it["qtd"]
         if tipo == "UN":
-            un += q
-            garrafas += q
+            v["por_tipo"]["UN"] = v["por_tipo"].get("UN", 0) + q
+            v["garrafas"] += q
         elif tipo in ("CX", "FD") and arr:
-            cx += q
-            garrafas += q * arr
+            v["por_tipo"][tipo] = v["por_tipo"].get(tipo, 0) + q
+            v["garrafas"] += q * arr
         else:
-            sem_tamanho.append(nome_bonito(base))
-    if not chaves:
-        return None
-    inteiro = lambda v: int(v) if float(v).is_integer() else v
-    return {
-        "cx": inteiro(cx),
-        "un": inteiro(un),
-        "garrafas": inteiro(garrafas),
-        "chaves": chaves,
-        "sem_tamanho": sorted(set(sem_tamanho)),
-    }
+            v["sem_tamanho"].append(nome_bonito(base))
+    inteiro = lambda x: int(x) if float(x).is_integer() else x
+    saida = []
+    for nome, _ in TIPOS_VASILHAME:
+        if nome in contas:
+            v = contas[nome]
+            v["por_tipo"] = {t: inteiro(q) for t, q in v["por_tipo"].items()}
+            v["garrafas"] = inteiro(v["garrafas"])
+            v["sem_tamanho"] = sorted(set(v["sem_tamanho"]))
+            saida.append(v)
+    return saida
 
 
 def texto_vasilhame(v):
-    """(coluna Produto, coluna Quantidade) da linha do vasilhame KS."""
-    partes = []
-    if v["cx"]:
-        partes.append(f"{v['cx']} CX")
-    if v["un"] or not partes:
-        partes.append(f"{v['un']} UN")
-    return f"Vasilhame KS que volta ({v['garrafas']} garrafas)", " + ".join(partes)
+    """(coluna Produto, coluna Quantidade) da linha de um vasilhame."""
+    partes = [f"{v['por_tipo'][t]} {t}" for t in ("CX", "FD", "UN") if v["por_tipo"].get(t)]
+    return f"Vasilhame {v['nome']} que volta ({v['garrafas']} garrafas)", " + ".join(partes) or "0"
 
 
 # --------------------------------------------------------------------------
@@ -411,7 +425,7 @@ LARGURA_CAIXINHA = 5
 LARGURA_MAX_FOLHA = 94
 
 
-def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=None):
+def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=None):
     wb = Workbook()
     ws = wb.active
     ws.title = "Carga"
@@ -426,16 +440,17 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=N
             folha.append(("secao", TITULO_SECAO.get(sec_atual, sec_atual)))
         folha.append(("item", l))
 
-    # Linha do vasilhame KS: no fim da seção onde estão os KS (RETORNÁVEIS);
-    # sem seções, logo depois do último produto KS. Não entra no TOTAL.
-    if vasilhame:
-        pos_ks = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in vasilhame["chaves"]]
-        if pos_ks:
-            fim = pos_ks[-1] + 1
+    # Linhas dos vasilhames, todas juntas: no fim da seção onde estão esses produtos
+    # (RETORNÁVEIS); sem seções, logo depois do último deles. Não entram no TOTAL.
+    if vasilhames:
+        todas = set().union(*(v["chaves"] for v in vasilhames))
+        pos = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in todas]
+        if pos:
+            fim = pos[-1] + 1
             if com_secao:
                 while fim < len(folha) and folha[fim][0] == "item":
                     fim += 1
-            folha.insert(fim, ("vasilhame", texto_vasilhame(vasilhame)))
+            folha[fim:fim] = [("vasilhame", texto_vasilhame(v)) for v in vasilhames]
 
     n = len(folha)
     linha_total = n + 2
@@ -458,7 +473,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=N
     ws.append(["Produto", "Quantidade", "OK"])
     linhas_secao = []
     linhas_novas = []
-    linha_vasilhame = None
+    linhas_vasilhame = []
     for tipo, conteudo in folha:
         if tipo == "secao":
             ws.append([conteudo])
@@ -466,7 +481,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=N
             continue
         if tipo == "vasilhame":
             ws.append([conteudo[0], conteudo[1], CAIXINHA])
-            linha_vasilhame = ws.max_row
+            linhas_vasilhame.append(ws.max_row)
             continue
         l = conteudo
         ws.append([l[0], l[1], CAIXINHA] + l[2])
@@ -481,9 +496,9 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=N
         value=f"=SUM({letra_ini}2:{letra_fim}{n + 1})",
     )
 
-    # A linha do vasilhame é em negrito (letra mais larga): conta com uma folga a mais.
+    # As linhas de vasilhame são em negrito (letra mais larga): conta com uma folga a mais.
     vas = [c for t, c in folha if t == "vasilhame"]
-    larg_a = min(60, max([len(l[0]) + 2 for l in linhas] + [len(c[0]) + 5 for c in vas]))
+    larg_a = min(60, max([len(l[0]) + 2 for l in linhas] + [math.ceil(len(c[0]) * 1.12) + 3 for c in vas]))
     larg_b = min(34, max([len(l[1]) + 2 for l in linhas + [("", "Quantidade", [], 0, "")]] + [len(c[1]) + 4 for c in vas]))
     # A + B + C precisam caber na largura do A4 em pé: se passar, encolhe só a coluna A.
     larg_a = max(min(larg_a, LARGURA_MAX_FOLHA - LARGURA_CAIXINHA - max(larg_b, 12)), 12)
@@ -493,7 +508,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=N
 
     for r in range(1, linha_total + 1):
         ws.row_dimensions[r].height = altura
-        negrito = r in (1, linha_total, linha_vasilhame) or r in linhas_secao
+        negrito = r in (1, linha_total) or r in linhas_secao or r in linhas_vasilhame
         for c in (1, 2, 3):
             cel = ws.cell(row=r, column=c)
             # O ☐ não existe na Arial; a Segoe UI Symbol (Windows) desenha ele certinho.
@@ -505,13 +520,11 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=N
                 vertical="center",
                 indent=0 if c >= 2 or negrito else 1,
             )
-    if linha_vasilhame:
-        fundo_vasilhame = PatternFill("solid", start_color="FFF2CC", end_color="FFF2CC")
+    fundo_vasilhame = PatternFill("solid", start_color="FFF2CC", end_color="FFF2CC")
+    for r in linhas_vasilhame:
         for c in (1, 2, 3):
-            ws.cell(row=linha_vasilhame, column=c).fill = fundo_vasilhame
-        ws.cell(row=linha_vasilhame, column=1).alignment = Alignment(
-            horizontal="left", vertical="center", indent=1
-        )
+            ws.cell(row=r, column=c).fill = fundo_vasilhame
+        ws.cell(row=r, column=1).alignment = Alignment(horizontal="left", vertical="center", indent=1)
     for r in linhas_secao:
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
         for c in (1, 2, 3):
@@ -790,7 +803,7 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
     linhas, nao_cad, sem_tipo, fora_do_mapa = monta_linhas(
         itens, por_ref, variantes, apelidos, ordem, ordem_mapa
     )
-    vasilhame_ks = conta_vasilhame_ks(itens, por_ref)
+    vasilhames = conta_vasilhames(itens, por_ref)
 
     soma = sum(i["qtd"] for i in itens)
     rotulo, dia = monta_rotulo(pdf, grupo)
@@ -802,7 +815,7 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
     os.makedirs(saida_dir, exist_ok=True)
     saida = os.path.join(saida_dir, nome_arq)
     por_pagina, fonte_pequena, saida_final = escreve_xlsx(
-        linhas, saida, data, grupo, total_pdf, titulo=titulo, vasilhame=vasilhame_ks
+        linhas, saida, data, grupo, total_pdf, titulo=titulo, vasilhames=vasilhames
     )
     ok = total_pdf is not None and abs(soma - total_pdf) < 0.001
 
@@ -831,7 +844,7 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
         "total_pdf": total_pdf,
         "ok": ok,
         "historico": historico,
-        "vasilhame_ks": vasilhame_ks,
+        "vasilhames": vasilhames,
         "aviso_historico": aviso_historico,
         "nao_cadastrados": nao_cad,
         "sem_tipo": sorted(set(sem_tipo)),
@@ -890,11 +903,12 @@ def main():
             print("  -", n)
     if r["fonte_pequena"]:
         print("\nAtenção: muitos itens, a fonte ficou pequena. Considere imprimir em 3 páginas.")
-    v = r["vasilhame_ks"]
-    if v:
-        print("\n" + " = ".join(texto_vasilhame(v)))
+    if r["vasilhames"]:
+        print()
+    for v in r["vasilhames"]:
+        print(" = ".join(texto_vasilhame(v)))
         if v["sem_tamanho"]:
-            print("Atenção - KS sem tamanho de caixa no cadastro (não entraram nas garrafas):")
+            print(f"Atenção - {v['nome']} sem tamanho de caixa no cadastro (não entrou nas garrafas):")
             for n in v["sem_tamanho"]:
                 print("  -", n)
     if r["aviso_historico"]:

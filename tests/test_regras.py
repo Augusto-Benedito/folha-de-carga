@@ -207,21 +207,29 @@ def test_historico_aberto_no_excel_nao_impede_a_folha(tmp_path, monkeypatch):
     assert "aberto no Excel" in r["aviso_historico"]
 
 
-CADASTRO_KS = {
+CADASTRO_RET = {
     "10": "COCA COLA KS 290ML RET CX 24X1",
     "11": "COCA COLA ZERO KS 290ML RET CX 24X1",
     "12": "FANTA LARANJA KS 290ML RET CX 24X1",
     "13": "SPRITE KS 290ML RET UN",
     "20": "COCA COLA 2L RET FD 6X1",
+    "21": "COCA COLA ZERO 2L RET FD 6X1",
+    "22": "FANTA LARANJA 2L RET FD 6X1",
     "30": "GUARANA ANTARCTICA 300ML RET CX 24X1",
+    "31": "GUARANA ANTARCTICA 300ML RET UN",
+    "40": "CERV ANTARCTICA 300ML RET. CX 23X1",
 }
-ITENS_KS = [
+ITENS_RET = [
     {"ref": "20", "nome": "", "qtd": 4.0},
+    {"ref": "21", "nome": "", "qtd": 2.0},
+    {"ref": "22", "nome": "", "qtd": 1.0},
     {"ref": "10", "nome": "", "qtd": 5.0},
     {"ref": "11", "nome": "", "qtd": 2.0},
     {"ref": "12", "nome": "", "qtd": 3.0},
     {"ref": "13", "nome": "", "qtd": 5.0},
     {"ref": "30", "nome": "", "qtd": 7.0},
+    {"ref": "31", "nome": "", "qtd": 3.0},
+    {"ref": "40", "nome": "", "qtd": 1.0},
 ]
 
 
@@ -229,47 +237,82 @@ def _por_ref(cadastro):
     return {ref: core.separa_nome(nome) for ref, nome in cadastro.items()}
 
 
+def _vasilhames(itens=ITENS_RET, cadastro=CADASTRO_RET):
+    return {v["nome"]: v for v in core.conta_vasilhames(itens, _por_ref(cadastro))}
+
+
+def test_tipo_de_vasilhame_pelo_nome():
+    assert core.tipo_vasilhame("COCA COLA KS 290ML RET") == "KS"
+    assert core.tipo_vasilhame("SPRITE KS 290ML RET") == "KS"
+    assert core.tipo_vasilhame("COCA COLA 2L RET") == "Coca 2L"
+    assert core.tipo_vasilhame("COCA COLA ZERO 2L RET") == "Coca 2L"
+    assert core.tipo_vasilhame("GUARANA ANTARCTICA 300ML RET") == "Guaraná 300ML"
+    assert core.tipo_vasilhame("GUARANÁ ANTARCTICA 300ML RET") == "Guaraná 300ML"
+    # Não são vasilhame (por enquanto):
+    assert core.tipo_vasilhame("COCA COLA 2L") is None  # 2L descartável
+    assert core.tipo_vasilhame("FANTA LARANJA 2L RET") is None
+    assert core.tipo_vasilhame("CERV ANTARCTICA 300ML RET.") is None  # cerveja litrinho
+
+
 def test_vasilhame_ks_conta_coca_fanta_sprite_ks():
-    v = core.conta_vasilhame_ks(ITENS_KS, _por_ref(CADASTRO_KS))
+    v = _vasilhames()["KS"]
     # 5 + 2 + 3 engradados de 24 = 240 garrafas, mais 5 garrafas soltas de Sprite KS.
-    # Coca 2L e Guaraná 300ML são retornáveis mas NÃO são KS: não contam.
-    assert (v["cx"], v["un"], v["garrafas"]) == (10, 5, 245)
-    assert v["sem_tamanho"] == []
+    assert (v["por_tipo"], v["garrafas"]) == ({"CX": 10, "UN": 5}, 245)
     assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (245 garrafas)", "10 CX + 5 UN")
 
 
-def test_sem_ks_nao_tem_vasilhame():
-    itens = [{"ref": "20", "nome": "", "qtd": 4.0}]
-    assert core.conta_vasilhame_ks(itens, _por_ref(CADASTRO_KS)) is None
+def test_vasilhame_coca_2l_normal_e_zero():
+    v = _vasilhames()["Coca 2L"]
+    # 4 + 2 engradados de 6 = 36 garrafas. Fanta 2L RET não conta.
+    assert core.texto_vasilhame(v) == ("Vasilhame Coca 2L que volta (36 garrafas)", "6 FD")
 
 
-def test_ks_sem_tamanho_de_caixa_gera_aviso():
+def test_vasilhame_guarana_300ml():
+    v = _vasilhames()["Guaraná 300ML"]
+    # 7 engradados de 24 = 168, mais 3 soltas. A cerveja Antarctica 300ML não conta.
+    assert core.texto_vasilhame(v) == ("Vasilhame Guaraná 300ML que volta (171 garrafas)", "7 CX + 3 UN")
+
+
+def test_vasilhames_na_ordem_do_mapa():
+    assert [v["nome"] for v in core.conta_vasilhames(ITENS_RET, _por_ref(CADASTRO_RET))] == [
+        "Coca 2L", "KS", "Guaraná 300ML"
+    ]
+
+
+def test_sem_retornavel_nao_tem_vasilhame():
+    itens = [{"ref": "22", "nome": "", "qtd": 4.0}]
+    assert core.conta_vasilhames(itens, _por_ref(CADASTRO_RET)) == []
+
+
+def test_vasilhame_sem_tamanho_de_caixa_gera_aviso():
     itens = [{"ref": "99", "nome": "COCA COLA KS 290ML RET CX", "qtd": 2.0}]
-    v = core.conta_vasilhame_ks(itens, {})
+    v = core.conta_vasilhames(itens, {})[0]
     assert v["sem_tamanho"] == ["Coca Cola KS 290ML RET"]
     assert v["garrafas"] == 0
 
 
-def test_linha_do_vasilhame_no_fim_de_retornaveis_e_fora_do_total(tmp_path):
+def test_linhas_de_vasilhame_no_fim_de_retornaveis_e_fora_do_total(tmp_path):
     from openpyxl import load_workbook
 
     pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
-    cadastro = dict(CADASTRO_KS, **{"40": "CERV SKOL 600ML RET CX 24X1"})
-    itens = ITENS_KS + [{"ref": "40", "nome": "", "qtd": 1.0}]
-    linhas, *_ = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
-    v = core.conta_vasilhame_ks(itens, _por_ref(cadastro))
-    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 27.0, vasilhame=v)
+    linhas, *_ = linha_de(ITENS_RET, CADASTRO_RET, ordem="mapa", ordem_mapa=ordem_mapa)
+    vas = core.conta_vasilhames(ITENS_RET, _por_ref(CADASTRO_RET))
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 33.0, vasilhames=vas)
 
     ws = load_workbook(final).active
     col_a = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
-    i_vas = col_a.index("Vasilhame KS que volta (245 garrafas)")
-    # Fica depois de todos os retornáveis (incluindo o Guaraná 300ML) e antes da próxima seção.
-    assert col_a[i_vas - 1] == "Guarana Antarctica 300ML RET"
-    assert col_a[i_vas + 1] == "CERVEJAS RETORNÁVEIS"
-    linha = i_vas + 1
-    assert ws.cell(row=linha, column=2).value == "10 CX + 5 UN"
-    assert ws.cell(row=linha, column=4).value is None  # não soma no TOTAL
-    # O TOTAL continua batendo com o sistema: 4 + 5 + 2 + 3 + 5 + 7 + 1 = 27.
-    numeros = [ws.cell(row=r, column=4).value for r in range(2, ws.max_row)]
-    assert sum(n for n in numeros if isinstance(n, (int, float))) == 27
+    i = col_a.index("Vasilhame Coca 2L que volta (36 garrafas)")
+    # As três linhas ficam juntas, depois de todos os retornáveis e antes da próxima seção.
+    assert col_a[i - 1] == "Guarana Antarctica 300ML RET"
+    assert col_a[i:i + 4] == [
+        "Vasilhame Coca 2L que volta (36 garrafas)",
+        "Vasilhame KS que volta (245 garrafas)",
+        "Vasilhame Guaraná 300ML que volta (171 garrafas)",
+        "CERVEJAS RETORNÁVEIS",
+    ]
+    for r in range(i + 1, i + 4):
+        assert ws.cell(row=r, column=4).value is None  # não somam no TOTAL
+    # O TOTAL continua batendo com o sistema: 4+2+1+5+2+3+5+7+3+1 = 33.
+    numeros = [ws.cell(row=r, column=c).value for r in range(2, ws.max_row) for c in (4, 5)]
+    assert sum(n for n in numeros if isinstance(n, (int, float))) == 33
