@@ -342,7 +342,19 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
                 novo = True
                 fora_do_mapa.append(x[0])
             novas.append((x + (sec, novo), pos))
-        novas.sort(key=lambda t: (t[1], -(t[0][3] or 0), t[0][0].upper()))
+        # Ordena primeiro pela seção e depois pela posição no mapa: assim cada seção sai
+        # num bloco só. (Só pela posição, um item novo no fim de uma seção — ex.: LATAS
+        # termina em 32.502, +0.5 = 33.002 — passava do primeiro item da seção seguinte
+        # e a folha ganhava um segundo título LATAS.)
+        idx_secao = {s: i for i, s in enumerate(ORDEM_SECOES)}
+        novas.sort(
+            key=lambda t: (
+                idx_secao.get(t[0][5], len(ORDEM_SECOES)),
+                t[1],
+                -(t[0][3] or 0),
+                t[0][0].upper(),
+            )
+        )
         linhas = [t[0] for t in novas]
     return linhas, avisos_nao_cadastrados, sem_tipo, fora_do_mapa
 

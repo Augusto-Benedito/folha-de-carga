@@ -499,3 +499,38 @@ def test_cerveja_300ml_casco_de_24_garrafas():
     itens = [{"ref": "1", "nome": "", "qtd": 1.0}, {"ref": "2", "nome": "", "qtd": 1.0}, {"ref": "3", "nome": "", "qtd": 2.0}]
     v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
     assert core.texto_vasilhame(v) == ("Vasilhame Cerveja 300ML que volta (48 garrafas)", "2 CX")
+
+
+def test_item_fora_do_mapa_nao_cria_secao_repetida(tmp_path):
+    # Caso real: LATAS termina em 32.502 no mapa e 200ML começa em 33. Uma lata que não
+    # está no mapa ia para 33.002, depois do primeiro item de 200ML, e a folha saía com
+    # dois títulos "LATAS".
+    from openpyxl import load_workbook
+
+    pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
+    cadastro = {
+        "1": "COCA COLA 350ML FD 12X1",       # LATAS, no mapa
+        "2": "FANTA MORANGO 350ML FD 12X1",   # LATAS, fora do mapa
+        "3": "COCA COLA 200ML FD 12X1",       # 200ML, no mapa
+        "4": "SPRITE 200ML FD 12X1",          # 200ML, no mapa
+        "5": "GUARANA NOVO 200ML FD 12X1",    # 200ML, fora do mapa
+        "6": "AGUA MINALICE S/ GÁS 510ML FD 12X1",  # ÁGUAS, no mapa
+    }
+    itens = [{"ref": r, "nome": "", "qtd": 1.0} for r in cadastro]
+    linhas, _, _, fora = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
+    assert sorted(fora) == ["Fanta Morango 350ML", "Guarana Novo 200ML"]
+
+    # Cada seção aparece num bloco só, na ordem do mapa, com o item novo no fim dela.
+    assert [(l[0], l[5]) for l in linhas] == [
+        ("Coca Cola 350ML", "LATAS"),
+        ("Fanta Morango 350ML", "LATAS"),
+        ("Coca Cola 200ML", "200ML"),
+        ("Sprite 200ML", "200ML"),
+        ("Guarana Novo 200ML", "200ML"),
+        ("Agua Minalice S/ Gás 510ML", "AGUAS"),
+    ]
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 6.0)
+    col_a = [c.value for c in load_workbook(final).active["A"]]
+    for titulo in ("LATAS", "200ML", "ÁGUAS"):
+        assert col_a.count(titulo) == 1, titulo
