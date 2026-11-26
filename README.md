@@ -64,7 +64,7 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
 - **(CX)** e **(UN)**: caixa e unidade. Se o mesmo produto tem mais de um tamanho de caixa, a de 12 (ou, sem ela, a maior) fica (CX) e as outras viram (C/n).
 - **Vasilhames que devem voltar:** no fim da seção dos produtos aparece uma linha em destaque para cada vasilhame da carga, na ordem do mapa. Em RETORNÁVEIS:
   - **Refri 2L**: todo refrigerante 2L RET (Coca, Coca Zero, Fanta Laranja, Fanta Uva...). O casco leva **12 garrafas**: o programa soma as garrafas (FD 6X1 = 6) e divide por 12; o que sobra sai como UN. Ex.: 7 FD = 42 garrafas = `3 CX + 6 UN`.
-  - **KS**: todo produto com "KS" no nome (Coca KS, Coca Zero KS, Fanta KS, Sprite KS...).
+  - **KS**: todo produto com "KS" no nome (Coca KS, Coca Zero KS, Fanta KS, Sprite KS...). Casco de **24 garrafas**. Meia caixa (12 UN) sai como `12 UN`; duas meias caixas fecham `1 CX`.
   - **Guaraná 300ML**: Guaraná 300ML RET (a cerveja litrinho 300ML tem linha própria). O casco leva **24 garrafas**: soma as garrafas e divide por 24.
 
   Em CERVEJAS RETORNÁVEIS:

@@ -550,3 +550,19 @@ def test_600ml_casco_de_24_e_litrao_casco_de_12():
         ("Vasilhame Litrão 1L que volta (13 garrafas)", "1 CX + 1 UN"),         # 13 = 12 + 1
         ("Vasilhame Amstel Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN"),  # 5 x 6 = 30 = 2 x 12 + 6
     ]
+
+
+def test_ks_casco_de_24_e_meia_caixa():
+    cadastro = {"1": "COCA COLA KS 290ML RET CX 24X1", "2": "FANTA LARANJA KS 290ML RET UN"}
+    # Meia caixa = 12 garrafas: não completa um casco, sai como 12 UN.
+    itens = [{"ref": "2", "nome": "", "qtd": 12.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (12 garrafas)", "12 UN")
+    # 3 caixas + meia caixa = 84 garrafas = 3 cascos + 12 soltas.
+    itens = [{"ref": "1", "nome": "", "qtd": 3.0}, {"ref": "2", "nome": "", "qtd": 12.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (84 garrafas)", "3 CX + 12 UN")
+    # Duas meias caixas (de clientes diferentes) fecham um casco.
+    itens = [{"ref": "2", "nome": "", "qtd": 24.0}]
+    v = core.conta_vasilhames(itens, _por_ref(cadastro))[0]
+    assert core.texto_vasilhame(v) == ("Vasilhame KS que volta (24 garrafas)", "1 CX")

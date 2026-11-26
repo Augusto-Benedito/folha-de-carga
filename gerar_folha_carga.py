@@ -371,8 +371,8 @@ TIPOS_VASILHAME = [
     # Todo refrigerante 2L retornável (Coca, Coca Zero, Fanta...). O casco leva 12 garrafas,
     # mesmo vendendo em FD 6X1.
     ("Refri 2L", re.compile(r"^(?!CERV\b)(?=.*\b2L\b)(?=.*\bRET\b)"), 12),
-    # Tudo que é KS: Coca, Coca Zero, Fanta, Sprite... KS 290ML.
-    ("KS", re.compile(r"\bKS\b"), None),
+    # Tudo que é KS: Coca, Coca Zero, Fanta, Sprite... KS 290ML. Casco de 24.
+    ("KS", re.compile(r"\bKS\b"), 24),
     # Guaraná 300ML retornável (não confundir com a cerveja litrinho 300ML). Casco de 24.
     ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b"), 24),
     # Cerveja 300ML retornável (litrinho: Skol, Brahma Chopp, Antarctica, Original...).
