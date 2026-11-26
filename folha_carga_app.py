@@ -95,8 +95,13 @@ def texto_detalhes(r):
     if r["fonte_pequena"]:
         L.append("")
         L.append("ATENÇÃO: muitos itens, a fonte ficou pequena. Considere imprimir em 3 páginas.")
+    if r.get("aviso_historico"):
+        L.append("")
+        L.append("ATENÇÃO: " + r["aviso_historico"])
     L.append("")
     L.append(f"Arquivo: {r['saida']}")
+    if r.get("historico"):
+        L.append(f"Anotado no histórico: {r['historico']}")
     return "\n".join(L)
 
 

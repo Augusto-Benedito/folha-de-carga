@@ -146,3 +146,62 @@ def test_quadradinho_para_conferir_a_carga(tmp_path):
     # O total continua somando só as quantidades numéricas (agora a partir da coluna D).
     assert ws.cell(row=5, column=2).value == "=SUM(D2:D4)"
     assert ws.cell(row=3, column=4).value == 3
+
+
+def test_historico_cria_e_acrescenta_em_ordem_cronologica(tmp_path):
+    import datetime
+
+    from openpyxl import load_workbook
+
+    pasta = str(tmp_path)
+    dia1 = datetime.datetime(2026, 11, 25, 7, 42)
+    dia2 = datetime.datetime(2026, 11, 26, 7, 35)
+    core.registra_historico(pasta, "Carga Palmeiras - 25-11-2026.xlsx", "Palmeiras", "25/11/2026",
+                            48, 312.0, 312.0, True, agora=dia1)
+    caminho = core.registra_historico(pasta, "Carga Grupo A - 26-11-2026.xlsx", "Grupo A", "26/11/2026",
+                                      55, 270.0, 271.0, False, agora=dia2)
+
+    ws = load_workbook(caminho).active
+    linhas = [[c.value for c in row] for row in ws.iter_rows()]
+    assert linhas[0] == core.CABECALHO_HISTORICO
+    assert linhas[1] == [dia1, "25/11/2026", "Palmeiras", 48, 312, 312, "OK", "Carga Palmeiras - 25-11-2026.xlsx"]
+    assert linhas[2] == [dia2, "26/11/2026", "Grupo A", 55, 270, 271, "NÃO BATEU", "Carga Grupo A - 26-11-2026.xlsx"]
+    assert len(linhas) == 3
+
+
+def _processar_com_pdf_falso(tmp_path, monkeypatch):
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    wb.active.append(["referencia", "nome"])
+    wb.active.append(["1", "COCA COLA 600ML FD 12X1"])
+    cadastro = str(tmp_path / "relatorio_Lista_de_produtos.xlsx")
+    wb.save(cadastro)
+    itens = [{"ref": "1", "nome": "COCA COLA 600ML FD 12X1", "qtd": 3.0}]
+    monkeypatch.setattr(core, "le_pdf", lambda pdf: (itens, 3.0, "26/11/2026", None))
+    pdf = str(tmp_path / "MAPA_PALMEIRAS_QUINTA_2026_11_26.pdf")
+    return core.processar(pdf, cadastro=cadastro)
+
+
+def test_processar_anota_no_historico(tmp_path, monkeypatch):
+    from openpyxl import load_workbook
+
+    r = _processar_com_pdf_falso(tmp_path, monkeypatch)
+    assert r["aviso_historico"] is None
+    assert r["historico"] == str(tmp_path / core.NOME_HISTORICO)
+    ws = load_workbook(r["historico"]).active
+    assert ws.max_row == 2
+    assert ws.cell(row=2, column=3).value == "Palmeiras - Quinta"
+    assert ws.cell(row=2, column=7).value == "OK"
+    assert ws.cell(row=2, column=8).value == os.path.basename(r["saida"])
+
+
+def test_historico_aberto_no_excel_nao_impede_a_folha(tmp_path, monkeypatch):
+    def aberto(*a, **k):
+        raise PermissionError("arquivo em uso")
+
+    monkeypatch.setattr(core, "registra_historico", aberto)
+    r = _processar_com_pdf_falso(tmp_path, monkeypatch)
+    assert os.path.exists(r["saida"])  # a folha saiu
+    assert r["historico"] is None
+    assert "aberto no Excel" in r["aviso_historico"]

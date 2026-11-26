@@ -13,6 +13,12 @@ O programa lê o PDF **"Relatório de produtos - Pré-Venda"** do sistema e gera
 
 A planilha `Carga ... .xlsx` é salva na mesma pasta do PDF. Na tela aparece **CONFERÊNCIA OK** quando a soma da folha bate com o total do rodapé do sistema, e os avisos (produto fora do cadastro, embalagem não reconhecida, item fora do mapa).
 
+### Histórico de cargas
+
+Cada folha gerada ganha uma linha no **`Histórico de cargas.xlsx`**, na mesma pasta das folhas. As linhas ficam em ordem cronológica: a mais nova sempre vai no fim. Cada linha tem a hora em que a folha foi gerada, a data e o nome do mapa, o número de linhas, os volumes, o total do sistema e a conferência (OK, NÃO BATEU ou SEM TOTAL). Clicando no nome do arquivo, a folha abre.
+
+O histórico só ganha linhas, nunca é apagado. Se ele estiver aberto no Excel na hora de gerar, a folha sai normalmente e a tela avisa que aquela folha não entrou na lista. Feche o histórico e gere de novo.
+
 ## Como pegar o .exe mais novo
 
 A cada mudança neste repositório, o GitHub gera o `.exe` sozinho:

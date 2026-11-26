@@ -23,6 +23,7 @@ A coluna "base" é o nome do cadastro SEM a embalagem (FD 12X1, CX 24X1, UN...).
 
 import argparse
 import csv
+import datetime
 import glob
 import math
 import os
@@ -561,6 +562,77 @@ def monta_rotulo(pdf, grupo_pdf):
 
 
 # --------------------------------------------------------------------------
+# Histórico: um arquivo só, na pasta das folhas, com uma linha por folha gerada
+# (a mais nova sempre no fim, então fica em ordem cronológica).
+NOME_HISTORICO = "Histórico de cargas.xlsx"
+CABECALHO_HISTORICO = [
+    "Gerado em",
+    "Data do mapa",
+    "Mapa",
+    "Linhas na folha",
+    "Volumes",
+    "Total do sistema",
+    "Conferência",
+    "Arquivo",
+]
+LARGURAS_HISTORICO = [19, 14, 26, 15, 10, 16, 14, 50]
+
+
+def _numero(v):
+    if v is None:
+        return None
+    return int(v) if float(v).is_integer() else float(v)
+
+
+def registra_historico(pasta, saida, mapa, data, n_linhas, soma, total_pdf, ok, agora=None):
+    """Acrescenta uma linha no 'Histórico de cargas.xlsx' da pasta (cria o arquivo na
+    primeira vez) e devolve o caminho dele. Se o histórico estiver aberto no Excel,
+    levanta PermissionError; o arquivo existente nunca é apagado nem recriado."""
+    caminho = os.path.join(pasta, NOME_HISTORICO)
+    agora = agora or datetime.datetime.now().replace(microsecond=0)
+    if os.path.exists(caminho):
+        wb = load_workbook(caminho)
+        ws = wb.active
+    else:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Histórico"
+        ws.append(CABECALHO_HISTORICO)
+        for c, larg in enumerate(LARGURAS_HISTORICO, start=1):
+            ws.cell(row=1, column=c).font = Font(name="Arial", size=10, bold=True)
+            ws.column_dimensions[get_column_letter(c)].width = larg
+        ws.freeze_panes = "A2"
+        # Se imprimir: deitado, todas as colunas numa página de largura.
+        ws.page_setup.paperSize = 9
+        ws.page_setup.orientation = "landscape"
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+        ws.print_title_rows = "1:1"
+
+    if total_pdf is None:
+        conferencia = "SEM TOTAL"
+    else:
+        conferencia = "OK" if ok else "NÃO BATEU"
+    arquivo = os.path.basename(saida)
+    ws.append(
+        [agora, data or "", mapa, n_linhas, _numero(soma), _numero(total_pdf), conferencia, arquivo]
+    )
+    r = ws.max_row
+    for c in range(1, len(CABECALHO_HISTORICO) + 1):
+        ws.cell(row=r, column=c).font = Font(name="Arial", size=10)
+    ws.cell(row=r, column=1).number_format = "dd/mm/yyyy hh:mm"
+    if conferencia == "NÃO BATEU":
+        ws.cell(row=r, column=7).font = Font(name="Arial", size=10, bold=True, color="B00020")
+    # Clicar no nome abre a folha (ela fica na mesma pasta do histórico).
+    ws.cell(row=r, column=8).hyperlink = arquivo
+    ws.cell(row=r, column=8).font = Font(name="Arial", size=10, color="0563C1", underline="single")
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(CABECALHO_HISTORICO))}{r}"
+    wb.save(caminho)
+    return caminho
+
+
+# --------------------------------------------------------------------------
 def pasta_do_app():
     """Pasta onde estão o script (ou o .exe), usada para achar apelidos.csv e o cadastro."""
     if getattr(sys, "frozen", False):
@@ -650,6 +722,22 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
     por_pagina, fonte_pequena, saida_final = escreve_xlsx(
         linhas, saida, data, grupo, total_pdf, titulo=titulo
     )
+    ok = total_pdf is not None and abs(soma - total_pdf) < 0.001
+
+    # A folha já está salva; um problema no histórico só vira aviso.
+    historico, aviso_historico = None, None
+    mapa = rotulo + (f" - {dia}" if dia else "")
+    try:
+        historico = registra_historico(
+            saida_dir, saida_final, mapa, data, len(linhas), soma, total_pdf, ok
+        )
+    except PermissionError:
+        aviso_historico = (
+            f"Não anotei esta folha no '{NOME_HISTORICO}' porque ele está aberto no Excel. "
+            "Feche o histórico e gere a folha de novo para ela entrar na lista."
+        )
+    except Exception as e:
+        aviso_historico = f"Não consegui anotar esta folha no '{NOME_HISTORICO}': {e}"
 
     return {
         "saida": saida_final,
@@ -659,7 +747,9 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
         "por_pagina": por_pagina,
         "soma": soma,
         "total_pdf": total_pdf,
-        "ok": total_pdf is not None and abs(soma - total_pdf) < 0.001,
+        "ok": ok,
+        "historico": historico,
+        "aviso_historico": aviso_historico,
         "nao_cadastrados": nao_cad,
         "sem_tipo": sorted(set(sem_tipo)),
         "fora_do_mapa": [] if sem_mapa else fora_do_mapa,
@@ -717,7 +807,11 @@ def main():
             print("  -", n)
     if r["fonte_pequena"]:
         print("\nAtenção: muitos itens, a fonte ficou pequena. Considere imprimir em 3 páginas.")
+    if r["aviso_historico"]:
+        print("\nAtenção: " + r["aviso_historico"])
     print(f"\nArquivo gerado: {r['saida']}")
+    if r["historico"]:
+        print(f"Anotado no histórico: {r['historico']}")
     sys.exit(0 if r["ok"] else 1)
 
 
