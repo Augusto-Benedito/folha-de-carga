@@ -23,6 +23,7 @@ A coluna "base" é o nome do cadastro SEM a embalagem (FD 12X1, CX 24X1, UN...).
 
 import argparse
 import csv
+import datetime
 import glob
 import math
 import os
@@ -347,7 +348,70 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
 
 
 # --------------------------------------------------------------------------
-def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
+# Vasilhame de KS: toda garrafa KS (Coca, Fanta, Sprite... KS 290ML) que vai no
+# caminhão volta vazia. A folha mostra quanto vasilhame KS deve voltar.
+RE_KS = re.compile(r"\bKS\b")
+
+
+def eh_ks(base):
+    return bool(RE_KS.search(chave(base)))
+
+
+def conta_vasilhame_ks(itens, por_ref):
+    """Soma o vasilhame KS do PDF. Devolve None se não tem KS, ou um dict:
+    cx = engradados (CX/FD), un = garrafas soltas, garrafas = total de garrafas,
+    chaves = produtos KS (para achar o lugar na folha),
+    sem_tamanho = produtos KS cuja embalagem não diz quantas garrafas tem."""
+    cx = un = garrafas = 0
+    chaves, sem_tamanho = set(), []
+    for it in itens:
+        if it["ref"] in por_ref:
+            base, tipo, arr = por_ref[it["ref"]]
+        else:
+            base, tipo, arr = separa_nome(it["nome"])
+        if not eh_ks(base):
+            continue
+        chaves.add(chave(base))
+        q = it["qtd"]
+        if tipo == "UN":
+            un += q
+            garrafas += q
+        elif tipo in ("CX", "FD") and arr:
+            cx += q
+            garrafas += q * arr
+        else:
+            sem_tamanho.append(nome_bonito(base))
+    if not chaves:
+        return None
+    inteiro = lambda v: int(v) if float(v).is_integer() else v
+    return {
+        "cx": inteiro(cx),
+        "un": inteiro(un),
+        "garrafas": inteiro(garrafas),
+        "chaves": chaves,
+        "sem_tamanho": sorted(set(sem_tamanho)),
+    }
+
+
+def texto_vasilhame(v):
+    """(coluna Produto, coluna Quantidade) da linha do vasilhame KS."""
+    partes = []
+    if v["cx"]:
+        partes.append(f"{v['cx']} CX")
+    if v["un"] or not partes:
+        partes.append(f"{v['un']} UN")
+    return f"Vasilhame KS que volta ({v['garrafas']} garrafas)", " + ".join(partes)
+
+
+# --------------------------------------------------------------------------
+# Quadradinho de cada linha, para quem carrega ir marcando o que já subiu no caminhão.
+CAIXINHA = "☐"
+LARGURA_CAIXINHA = 5
+# Soma máxima das larguras A+B+C que cabe no A4 em pé com margens de 0,5".
+LARGURA_MAX_FOLHA = 94
+
+
+def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhame=None):
     wb = Workbook()
     ws = wb.active
     ws.title = "Carga"
@@ -362,6 +426,17 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
             folha.append(("secao", TITULO_SECAO.get(sec_atual, sec_atual)))
         folha.append(("item", l))
 
+    # Linha do vasilhame KS: no fim da seção onde estão os KS (RETORNÁVEIS);
+    # sem seções, logo depois do último produto KS. Não entra no TOTAL.
+    if vasilhame:
+        pos_ks = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in vasilhame["chaves"]]
+        if pos_ks:
+            fim = pos_ks[-1] + 1
+            if com_secao:
+                while fim < len(folha) and folha[fim][0] == "item":
+                    fim += 1
+            folha.insert(fim, ("vasilhame", texto_vasilhame(vasilhame)))
+
     n = len(folha)
     linha_total = n + 2
     por_pagina = math.ceil((n + 1) / 2)
@@ -373,22 +448,28 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
     caixa = Border(left=borda, right=borda, top=borda, bottom=borda)
     fundo_secao = PatternFill("solid", start_color="D9D9D9", end_color="D9D9D9")
 
+    # Coluna C: quadradinho para conferir a carga (entra na impressão).
     # Colunas extras (fora da área de impressão) com as quantidades numéricas.
     max_partes = max(len(l[2]) for l in linhas)
-    col_ini = 3
+    col_ini = 4
     col_fim = col_ini + max_partes - 1
     letra_ini, letra_fim = get_column_letter(col_ini), get_column_letter(col_fim)
 
-    ws.append(["Produto", "Quantidade"])
+    ws.append(["Produto", "Quantidade", "OK"])
     linhas_secao = []
     linhas_novas = []
+    linha_vasilhame = None
     for tipo, conteudo in folha:
         if tipo == "secao":
             ws.append([conteudo])
             linhas_secao.append(ws.max_row)
             continue
+        if tipo == "vasilhame":
+            ws.append([conteudo[0], conteudo[1], CAIXINHA])
+            linha_vasilhame = ws.max_row
+            continue
         l = conteudo
-        ws.append([l[0], l[1]] + l[2])
+        ws.append([l[0], l[1], CAIXINHA] + l[2])
         if len(l) > 6 and l[6]:
             linhas_novas.append(ws.max_row)
 
@@ -400,26 +481,40 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
         value=f"=SUM({letra_ini}2:{letra_fim}{n + 1})",
     )
 
-    larg_a = min(60, max(len(l[0]) for l in linhas) + 2)
-    larg_b = min(34, max(len(l[1]) for l in linhas + [("", "Quantidade", [], 0, "")]) + 2)
-    ws.column_dimensions["A"].width = max(larg_a, 12)
+    # A linha do vasilhame é em negrito (letra mais larga): conta com uma folga a mais.
+    vas = [c for t, c in folha if t == "vasilhame"]
+    larg_a = min(60, max([len(l[0]) + 2 for l in linhas] + [len(c[0]) + 5 for c in vas]))
+    larg_b = min(34, max([len(l[1]) + 2 for l in linhas + [("", "Quantidade", [], 0, "")]] + [len(c[1]) + 4 for c in vas]))
+    # A + B + C precisam caber na largura do A4 em pé: se passar, encolhe só a coluna A.
+    larg_a = max(min(larg_a, LARGURA_MAX_FOLHA - LARGURA_CAIXINHA - max(larg_b, 12)), 12)
+    ws.column_dimensions["A"].width = larg_a
     ws.column_dimensions["B"].width = max(larg_b, 12)
+    ws.column_dimensions["C"].width = LARGURA_CAIXINHA
 
     for r in range(1, linha_total + 1):
         ws.row_dimensions[r].height = altura
-        negrito = r in (1, linha_total) or r in linhas_secao
-        for c in (1, 2):
+        negrito = r in (1, linha_total, linha_vasilhame) or r in linhas_secao
+        for c in (1, 2, 3):
             cel = ws.cell(row=r, column=c)
-            cel.font = Font(name="Arial", size=fonte, bold=negrito, italic=r in linhas_novas)
+            # O ☐ não existe na Arial; a Segoe UI Symbol (Windows) desenha ele certinho.
+            fonte_nome = "Segoe UI Symbol" if c == 3 and r > 1 else "Arial"
+            cel.font = Font(name=fonte_nome, size=fonte, bold=negrito, italic=r in linhas_novas and c < 3)
             cel.border = caixa
             cel.alignment = Alignment(
-                horizontal="center" if c == 2 or negrito else "left",
+                horizontal="center" if c >= 2 or negrito else "left",
                 vertical="center",
-                indent=0 if c == 2 or negrito else 1,
+                indent=0 if c >= 2 or negrito else 1,
             )
+    if linha_vasilhame:
+        fundo_vasilhame = PatternFill("solid", start_color="FFF2CC", end_color="FFF2CC")
+        for c in (1, 2, 3):
+            ws.cell(row=linha_vasilhame, column=c).fill = fundo_vasilhame
+        ws.cell(row=linha_vasilhame, column=1).alignment = Alignment(
+            horizontal="left", vertical="center", indent=1
+        )
     for r in linhas_secao:
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
-        for c in (1, 2):
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+        for c in (1, 2, 3):
             ws.cell(row=r, column=c).fill = fundo_secao
     ws.cell(row=linha_total, column=1).alignment = Alignment(
         horizontal="right", vertical="center", indent=1
@@ -464,7 +559,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
     ws.page_margins.top = ws.page_margins.bottom = 0.5
     ws.page_margins.header = ws.page_margins.footer = 0.2
     ws.print_title_rows = "1:1"
-    ws.print_area = f"A1:B{linha_total}"
+    ws.print_area = f"A1:C{linha_total}"
     ws.print_options.horizontalCentered = True
     if n > 1:
         ws.row_breaks.append(Break(id=quebra))
@@ -548,6 +643,77 @@ def monta_rotulo(pdf, grupo_pdf):
 
 
 # --------------------------------------------------------------------------
+# Histórico: um arquivo só, na pasta das folhas, com uma linha por folha gerada
+# (a mais nova sempre no fim, então fica em ordem cronológica).
+NOME_HISTORICO = "Histórico de cargas.xlsx"
+CABECALHO_HISTORICO = [
+    "Gerado em",
+    "Data do mapa",
+    "Mapa",
+    "Linhas na folha",
+    "Volumes",
+    "Total do sistema",
+    "Conferência",
+    "Arquivo",
+]
+LARGURAS_HISTORICO = [19, 14, 26, 15, 10, 16, 14, 50]
+
+
+def _numero(v):
+    if v is None:
+        return None
+    return int(v) if float(v).is_integer() else float(v)
+
+
+def registra_historico(pasta, saida, mapa, data, n_linhas, soma, total_pdf, ok, agora=None):
+    """Acrescenta uma linha no 'Histórico de cargas.xlsx' da pasta (cria o arquivo na
+    primeira vez) e devolve o caminho dele. Se o histórico estiver aberto no Excel,
+    levanta PermissionError; o arquivo existente nunca é apagado nem recriado."""
+    caminho = os.path.join(pasta, NOME_HISTORICO)
+    agora = agora or datetime.datetime.now().replace(microsecond=0)
+    if os.path.exists(caminho):
+        wb = load_workbook(caminho)
+        ws = wb.active
+    else:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Histórico"
+        ws.append(CABECALHO_HISTORICO)
+        for c, larg in enumerate(LARGURAS_HISTORICO, start=1):
+            ws.cell(row=1, column=c).font = Font(name="Arial", size=10, bold=True)
+            ws.column_dimensions[get_column_letter(c)].width = larg
+        ws.freeze_panes = "A2"
+        # Se imprimir: deitado, todas as colunas numa página de largura.
+        ws.page_setup.paperSize = 9
+        ws.page_setup.orientation = "landscape"
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+        ws.print_title_rows = "1:1"
+
+    if total_pdf is None:
+        conferencia = "SEM TOTAL"
+    else:
+        conferencia = "OK" if ok else "NÃO BATEU"
+    arquivo = os.path.basename(saida)
+    ws.append(
+        [agora, data or "", mapa, n_linhas, _numero(soma), _numero(total_pdf), conferencia, arquivo]
+    )
+    r = ws.max_row
+    for c in range(1, len(CABECALHO_HISTORICO) + 1):
+        ws.cell(row=r, column=c).font = Font(name="Arial", size=10)
+    ws.cell(row=r, column=1).number_format = "dd/mm/yyyy hh:mm"
+    if conferencia == "NÃO BATEU":
+        ws.cell(row=r, column=7).font = Font(name="Arial", size=10, bold=True, color="B00020")
+    # Clicar no nome abre a folha (ela fica na mesma pasta do histórico).
+    ws.cell(row=r, column=8).hyperlink = arquivo
+    ws.cell(row=r, column=8).font = Font(name="Arial", size=10, color="0563C1", underline="single")
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(CABECALHO_HISTORICO))}{r}"
+    wb.save(caminho)
+    return caminho
+
+
+# --------------------------------------------------------------------------
 def pasta_do_app():
     """Pasta onde estão o script (ou o .exe), usada para achar apelidos.csv e o cadastro."""
     if getattr(sys, "frozen", False):
@@ -624,6 +790,7 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
     linhas, nao_cad, sem_tipo, fora_do_mapa = monta_linhas(
         itens, por_ref, variantes, apelidos, ordem, ordem_mapa
     )
+    vasilhame_ks = conta_vasilhame_ks(itens, por_ref)
 
     soma = sum(i["qtd"] for i in itens)
     rotulo, dia = monta_rotulo(pdf, grupo)
@@ -635,8 +802,24 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
     os.makedirs(saida_dir, exist_ok=True)
     saida = os.path.join(saida_dir, nome_arq)
     por_pagina, fonte_pequena, saida_final = escreve_xlsx(
-        linhas, saida, data, grupo, total_pdf, titulo=titulo
+        linhas, saida, data, grupo, total_pdf, titulo=titulo, vasilhame=vasilhame_ks
     )
+    ok = total_pdf is not None and abs(soma - total_pdf) < 0.001
+
+    # A folha já está salva; um problema no histórico só vira aviso.
+    historico, aviso_historico = None, None
+    mapa = rotulo + (f" - {dia}" if dia else "")
+    try:
+        historico = registra_historico(
+            saida_dir, saida_final, mapa, data, len(linhas), soma, total_pdf, ok
+        )
+    except PermissionError:
+        aviso_historico = (
+            f"Não anotei esta folha no '{NOME_HISTORICO}' porque ele está aberto no Excel. "
+            "Feche o histórico e gere a folha de novo para ela entrar na lista."
+        )
+    except Exception as e:
+        aviso_historico = f"Não consegui anotar esta folha no '{NOME_HISTORICO}': {e}"
 
     return {
         "saida": saida_final,
@@ -646,7 +829,10 @@ def processar(pdf, cadastro=None, apelidos_csv=None, ordem="mapa", saida_dir=Non
         "por_pagina": por_pagina,
         "soma": soma,
         "total_pdf": total_pdf,
-        "ok": total_pdf is not None and abs(soma - total_pdf) < 0.001,
+        "ok": ok,
+        "historico": historico,
+        "vasilhame_ks": vasilhame_ks,
+        "aviso_historico": aviso_historico,
         "nao_cadastrados": nao_cad,
         "sem_tipo": sorted(set(sem_tipo)),
         "fora_do_mapa": [] if sem_mapa else fora_do_mapa,
@@ -704,7 +890,18 @@ def main():
             print("  -", n)
     if r["fonte_pequena"]:
         print("\nAtenção: muitos itens, a fonte ficou pequena. Considere imprimir em 3 páginas.")
+    v = r["vasilhame_ks"]
+    if v:
+        print("\n" + " = ".join(texto_vasilhame(v)))
+        if v["sem_tamanho"]:
+            print("Atenção - KS sem tamanho de caixa no cadastro (não entraram nas garrafas):")
+            for n in v["sem_tamanho"]:
+                print("  -", n)
+    if r["aviso_historico"]:
+        print("\nAtenção: " + r["aviso_historico"])
     print(f"\nArquivo gerado: {r['saida']}")
+    if r["historico"]:
+        print(f"Anotado no histórico: {r['historico']}")
     sys.exit(0 if r["ok"] else 1)
 
 

@@ -13,6 +13,12 @@ O programa lê o PDF **"Relatório de produtos - Pré-Venda"** do sistema e gera
 
 A planilha `Carga ... .xlsx` é salva na mesma pasta do PDF. Na tela aparece **CONFERÊNCIA OK** quando a soma da folha bate com o total do rodapé do sistema, e os avisos (produto fora do cadastro, embalagem não reconhecida, item fora do mapa).
 
+### Histórico de cargas
+
+Cada folha gerada ganha uma linha no **`Histórico de cargas.xlsx`**, na mesma pasta das folhas. As linhas ficam em ordem cronológica: a mais nova sempre vai no fim. Cada linha tem a hora em que a folha foi gerada, a data e o nome do mapa, o número de linhas, os volumes, o total do sistema e a conferência (OK, NÃO BATEU ou SEM TOTAL). Clicando no nome do arquivo, a folha abre.
+
+O histórico só ganha linhas, nunca é apagado. Se ele estiver aberto no Excel na hora de gerar, a folha sai normalmente e a tela avisa que aquela folha não entrou na lista. Feche o histórico e gere de novo.
+
 ## Como pegar o .exe mais novo
 
 A cada mudança neste repositório, o GitHub gera o `.exe` sozinho:
@@ -54,6 +60,8 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
 - Uma linha por produto, nome sem a embalagem; embalagens diferentes do mesmo produto ficam na mesma linha. Ex.: `Sprite 350ML — 12(FD); 2(C/6)`.
 - **(FD)** = fardo de 12 (nos produtos de 1L ou mais, fardo de 6). Fardo de outro tamanho sai como (C/6), (C/18) etc. Ex.: Sprite Zero 350ML só tem FD 6X1, então sai `(C/6)`, nunca `(FD)`.
 - **(CX)** e **(UN)**: caixa e unidade. Se o mesmo produto tem mais de um tamanho de caixa, a de 12 (ou, sem ela, a maior) fica (CX) e as outras viram (C/n).
+- **Vasilhame KS:** todo produto com "KS" no nome (Coca KS, Coca Zero KS, Fanta KS, Sprite KS...) conta como vasilhame de KS. No fim da seção RETORNÁVEIS aparece uma linha em destaque com o que deve voltar no caminhão. Ex.: `Vasilhame KS que volta (245 garrafas) — 10 CX + 5 UN`. Cada CX conta como um engradado e as garrafas são calculadas pelo tamanho da caixa no cadastro (CX 24X1 = 24). Essa linha não entra no TOTAL.
+- Cada produto tem um quadradinho ☐ na coluna **OK**, para quem carrega ir marcando o que já subiu no caminhão.
 
 ## Pelo terminal
 
