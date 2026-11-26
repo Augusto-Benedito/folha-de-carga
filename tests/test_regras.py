@@ -407,3 +407,19 @@ def test_heineken_e_amstel_litrao_em_linhas_proprias():
         ("Vasilhame Litrão 1L que volta (12 garrafas)", "1 CX"),
         ("Vasilhame Amstel Litrão 1L que volta (24 garrafas)", "2 CX"),
     ]
+
+
+def test_le_historico(tmp_path):
+    import datetime
+
+    pasta = str(tmp_path)
+    assert core.le_historico(pasta) == []  # ainda não tem histórico
+    dia1 = datetime.datetime(2026, 11, 25, 7, 42)
+    dia2 = datetime.datetime(2026, 11, 26, 7, 35)
+    core.registra_historico(pasta, "Carga A.xlsx", "Palmeiras", "25/11/2026", 48, 312.0, 312.0, True, agora=dia1)
+    core.registra_historico(pasta, "Carga B.xlsx", "Grupo A", "26/11/2026", 55, 270.0, 271.0, False, agora=dia2)
+    folhas = core.le_historico(pasta)
+    assert [f["Mapa"] for f in folhas] == ["Palmeiras", "Grupo A"]  # ordem cronológica
+    assert folhas[0]["Gerado em"] == dia1
+    assert folhas[1]["Conferência"] == "NÃO BATEU"
+    assert folhas[1]["caminho"] == os.path.join(pasta, "Carga B.xlsx")

@@ -17,6 +17,8 @@ A planilha `Carga ... .xlsx` é salva na mesma pasta do PDF. Na tela aparece **C
 
 Cada folha gerada ganha uma linha no **`Histórico de cargas.xlsx`**, na mesma pasta das folhas. As linhas ficam em ordem cronológica: a mais nova sempre vai no fim. Cada linha tem a hora em que a folha foi gerada, a data e o nome do mapa, o número de linhas, os volumes, o total do sistema e a conferência (OK, NÃO BATEU ou SEM TOTAL). Clicando no nome do arquivo, a folha abre.
 
+No programa, a aba **Histórico** mostra essa lista: a folha que não bateu aparece em vermelho, e a folha cujo arquivo foi apagado ou movido aparece em cinza. Dois cliques numa linha abrem a folha. A aba usa a pasta da última folha gerada. Para ver outra pasta, clique em **Trocar pasta...**.
+
 O histórico só ganha linhas, nunca é apagado. Se ele estiver aberto no Excel na hora de gerar, a folha sai normalmente e a tela avisa que aquela folha não entrou na lista. Feche o histórico e gere de novo.
 
 ## Como pegar o .exe mais novo

@@ -750,6 +750,32 @@ def registra_historico(pasta, saida, mapa, data, n_linhas, soma, total_pdf, ok, 
     return caminho
 
 
+def le_historico(pasta):
+    """Lê o 'Histórico de cargas.xlsx' da pasta e devolve a lista de folhas geradas,
+    em ordem cronológica (a mais nova no fim). Cada item é um dict com as colunas do
+    histórico e 'caminho' = caminho completo da folha. Sem histórico na pasta: []."""
+    caminho = os.path.join(pasta, NOME_HISTORICO)
+    if not os.path.exists(caminho):
+        return []
+    wb = load_workbook(caminho, read_only=True, data_only=True)
+    try:
+        linhas = list(wb.worksheets[0].iter_rows(values_only=True))
+    finally:
+        wb.close()
+    if not linhas:
+        return []
+    cab = [_como_texto(c) for c in linhas[0]]
+    folhas = []
+    for lin in linhas[1:]:
+        if not lin or all(c is None for c in lin):
+            continue
+        d = {nome: (lin[i] if i < len(lin) else None) for i, nome in enumerate(cab)}
+        arquivo = _como_texto(d.get("Arquivo"))
+        d["caminho"] = os.path.join(pasta, arquivo) if arquivo else None
+        folhas.append(d)
+    return folhas
+
+
 # --------------------------------------------------------------------------
 def pasta_do_app():
     """Pasta onde estão o script (ou o .exe), usada para achar apelidos.csv e o cadastro."""
