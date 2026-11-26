@@ -423,3 +423,45 @@ def test_le_historico(tmp_path):
     assert folhas[0]["Gerado em"] == dia1
     assert folhas[1]["Conferência"] == "NÃO BATEU"
     assert folhas[1]["caminho"] == os.path.join(pasta, "Carga B.xlsx")
+
+
+def test_vasilhame_de_destilados():
+    sim = [
+        "CACHAÇA 51 965ML", "CACHACA 51 OURO 965ML", "CACHAÇA 51 SELEÇÃO 965ML",
+        "CACHAÇA VELHO BARREIRO 910ML", "AGUARDENTE VILLA VELHA CARVALHO 965ML",
+        "RECORD CANA E MEL 900ML", "RECORD CANELINHA 900ML", "RECORD FERNET 960ML", "RECORD COCO 960ML",
+    ]
+    nao = [
+        "COROTE RECORD AMENDOIM 500ML", "VODKA RECORD LIMAO 500ML", "GROSELHA RECORD 500ML",
+        "51 ICE BALADA 275ML", "VODKA SMIRNOFF 998ML",
+    ]
+    for nome in sim:
+        assert core.tipo_vasilhame(nome) == "Destilados", nome
+    for nome in nao:
+        assert core.tipo_vasilhame(nome) is None, nome
+
+
+def test_linha_de_destilados_no_fim_de_destilados(tmp_path):
+    from openpyxl import load_workbook
+
+    cadastro = {
+        "1": "CACHAÇA 51 965ML CX 12X1",
+        "2": "CACHAÇA 51 965ML UN",
+        "3": "CACHAÇA VELHO BARREIRO 910ML CX 12X1",
+        "4": "RECORD FERNET 960ML UN",
+        "5": "VODKA SMIRNOFF 998ML UN",
+        "6": "51 ICE BALADA 275ml FD 6X1",
+    }
+    itens = [{"ref": r, "nome": "", "qtd": q} for r, q in (("1", 2.0), ("2", 3.0), ("3", 1.0), ("4", 4.0), ("5", 1.0), ("6", 2.0))]
+    vas = core.conta_vasilhames(itens, _por_ref(cadastro))
+    # 2 + 1 caixas de 12 = 36 garrafas, mais 3 + 4 soltas = 43.
+    assert [core.texto_vasilhame(v) for v in vas] == [
+        ("Vasilhame Destilados que volta (43 garrafas)", "3 CX + 7 UN")
+    ]
+    pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
+    linhas, *_ = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 13.0, vasilhames=vas)
+    col_a = [c.value for c in load_workbook(final).active["A"]]
+    j = col_a.index("ICES")
+    assert col_a[j - 1] == "Vasilhame Destilados que volta (43 garrafas)"

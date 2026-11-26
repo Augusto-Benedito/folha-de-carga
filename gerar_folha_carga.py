@@ -349,7 +349,7 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
 
 # --------------------------------------------------------------------------
 # Vasilhames: a garrafa retornável que vai cheia no caminhão volta vazia.
-# A folha mostra, no fim da seção dos produtos (RETORNÁVEIS, CERVEJAS RETORNÁVEIS),
+# A folha mostra, no fim da seção dos produtos (RETORNÁVEIS, CERVEJAS RETORNÁVEIS, DESTILADOS),
 # quanto de cada vasilhame deve voltar.
 # (nome na folha, regra pelo nome do produto, garrafas por casco).
 # Garrafas por casco = None: cada CX/FD vendida é um casco (o tamanho do cadastro).
@@ -373,6 +373,19 @@ TIPOS_VASILHAME = [
     # Cerveja litrão 1L retornável. O Amstel Litrão tem casco próprio (abaixo).
     ("Litrão 1L", re.compile(r"^CERV\b(?!.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
     ("Amstel Litrão 1L", re.compile(r"^CERV\b(?=.*\bAMSTEL\b)(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)"), None),
+    # Destilados retornáveis (garrafa de vidro), todos numa linha só:
+    # Cachaça 51 965ML (normal, Ouro, Seleção), Velho Barreiro 910ML, Villa Velha 965ML
+    # e os Record de 900/960ML (o Corote Record e a Vodka Record 500ML não contam).
+    (
+        "Destilados",
+        re.compile(
+            r"^(CACHACA|AGUARDENTE)\b.*\b51\b.*\b965ML\b"
+            r"|\bVELHO BARREIRO\b.*\b910ML\b"
+            r"|\bVILL?A VELHA\b.*\b965ML\b"
+            r"|^RECORD\b.*\b(900|960)ML\b"
+        ),
+        None,
+    ),
 ]
 
 

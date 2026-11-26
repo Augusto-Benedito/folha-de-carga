@@ -73,6 +73,9 @@ A coluna `base` é o nome do cadastro **sem** a embalagem (FD 12X1, CX 24X1, UN.
   - **Litrão 1L**: toda cerveja 1L com RET no nome (Skol, Brahma, Antarctica, Original, Glacial).
   - **Amstel Litrão 1L**: casco próprio, linha separada.
 
+  Em DESTILADOS (uma linha só):
+  - **Destilados**: Cachaça 51 965ML (normal, Ouro e Seleção), Cachaça Velho Barreiro 910ML, Aguardente Villa Velha 965ML e os Record de 900/960ML (Cana e Mel, Canelinha, Menta, Fernet, Amendoim, Coco, Cacau). O Corote Record e a Vodka Record de 500ML não contam.
+
   Ex.: `Vasilhame KS que volta (245 garrafas) — 10 CX + 5 UN`. Nos outros vasilhames, cada CX/FD conta como um engradado e as garrafas são calculadas pelo tamanho da caixa no cadastro (CX 24X1 = 24). Essas linhas não entram no TOTAL. Para incluir outro vasilhame, acrescente uma regra em `TIPOS_VASILHAME` no `gerar_folha_carga.py`.
 - Cada produto tem um quadradinho ☐ na coluna **OK**, para quem carrega ir marcando o que já subiu no caminhão.
 
