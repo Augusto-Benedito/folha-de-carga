@@ -347,6 +347,13 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
 
 
 # --------------------------------------------------------------------------
+# Quadradinho de cada linha, para quem carrega ir marcando o que já subiu no caminhão.
+CAIXINHA = "☐"
+LARGURA_CAIXINHA = 5
+# Soma máxima das larguras A+B+C que cabe no A4 em pé com margens de 0,5".
+LARGURA_MAX_FOLHA = 94
+
+
 def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
     wb = Workbook()
     ws = wb.active
@@ -373,13 +380,14 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
     caixa = Border(left=borda, right=borda, top=borda, bottom=borda)
     fundo_secao = PatternFill("solid", start_color="D9D9D9", end_color="D9D9D9")
 
+    # Coluna C: quadradinho para conferir a carga (entra na impressão).
     # Colunas extras (fora da área de impressão) com as quantidades numéricas.
     max_partes = max(len(l[2]) for l in linhas)
-    col_ini = 3
+    col_ini = 4
     col_fim = col_ini + max_partes - 1
     letra_ini, letra_fim = get_column_letter(col_ini), get_column_letter(col_fim)
 
-    ws.append(["Produto", "Quantidade"])
+    ws.append(["Produto", "Quantidade", "OK"])
     linhas_secao = []
     linhas_novas = []
     for tipo, conteudo in folha:
@@ -388,7 +396,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
             linhas_secao.append(ws.max_row)
             continue
         l = conteudo
-        ws.append([l[0], l[1]] + l[2])
+        ws.append([l[0], l[1], CAIXINHA] + l[2])
         if len(l) > 6 and l[6]:
             linhas_novas.append(ws.max_row)
 
@@ -402,24 +410,29 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
 
     larg_a = min(60, max(len(l[0]) for l in linhas) + 2)
     larg_b = min(34, max(len(l[1]) for l in linhas + [("", "Quantidade", [], 0, "")]) + 2)
-    ws.column_dimensions["A"].width = max(larg_a, 12)
+    # A + B + C precisam caber na largura do A4 em pé: se passar, encolhe só a coluna A.
+    larg_a = max(min(larg_a, LARGURA_MAX_FOLHA - LARGURA_CAIXINHA - max(larg_b, 12)), 12)
+    ws.column_dimensions["A"].width = larg_a
     ws.column_dimensions["B"].width = max(larg_b, 12)
+    ws.column_dimensions["C"].width = LARGURA_CAIXINHA
 
     for r in range(1, linha_total + 1):
         ws.row_dimensions[r].height = altura
         negrito = r in (1, linha_total) or r in linhas_secao
-        for c in (1, 2):
+        for c in (1, 2, 3):
             cel = ws.cell(row=r, column=c)
-            cel.font = Font(name="Arial", size=fonte, bold=negrito, italic=r in linhas_novas)
+            # O ☐ não existe na Arial; a Segoe UI Symbol (Windows) desenha ele certinho.
+            fonte_nome = "Segoe UI Symbol" if c == 3 and r > 1 else "Arial"
+            cel.font = Font(name=fonte_nome, size=fonte, bold=negrito, italic=r in linhas_novas)
             cel.border = caixa
             cel.alignment = Alignment(
-                horizontal="center" if c == 2 or negrito else "left",
+                horizontal="center" if c >= 2 or negrito else "left",
                 vertical="center",
-                indent=0 if c == 2 or negrito else 1,
+                indent=0 if c >= 2 or negrito else 1,
             )
     for r in linhas_secao:
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
-        for c in (1, 2):
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+        for c in (1, 2, 3):
             ws.cell(row=r, column=c).fill = fundo_secao
     ws.cell(row=linha_total, column=1).alignment = Alignment(
         horizontal="right", vertical="center", indent=1
@@ -464,7 +477,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None):
     ws.page_margins.top = ws.page_margins.bottom = 0.5
     ws.page_margins.header = ws.page_margins.footer = 0.2
     ws.print_title_rows = "1:1"
-    ws.print_area = f"A1:B{linha_total}"
+    ws.print_area = f"A1:C{linha_total}"
     ws.print_options.horizontalCentered = True
     if n > 1:
         ws.row_breaks.append(Break(id=quebra))

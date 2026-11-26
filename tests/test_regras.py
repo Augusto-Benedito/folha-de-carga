@@ -122,3 +122,27 @@ def test_escreve_xlsx(tmp_path):
     saida = str(tmp_path / "Carga.xlsx")
     _, _, final = core.escreve_xlsx(linhas, saida, "25/11/2026", "A", 3.0)
     assert os.path.exists(final)
+
+
+def test_quadradinho_para_conferir_a_carga(tmp_path):
+    from openpyxl import load_workbook
+
+    cadastro = {"1": "COCA COLA 600ML FD 12X1", "2": "FANTA UVA 600ML FD 12X1"}
+    itens = [{"ref": "1", "nome": "", "qtd": 3.0}, {"ref": "2", "nome": "", "qtd": 2.0}]
+    ordem_mapa = {
+        core.chave("COCA COLA 600ML"): (1.0, "600ML"),
+        core.chave("FANTA UVA 600ML"): (2.0, "600ML"),
+    }
+    linhas, *_ = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "25/11/2026", "A", 5.0)
+    ws = load_workbook(final).active
+
+    # Linha 1: cabeçalho; linha 2: título da seção; linhas 3 e 4: itens.
+    assert [ws.cell(row=1, column=c).value for c in (1, 2, 3)] == ["Produto", "Quantidade", "OK"]
+    assert ws.cell(row=2, column=3).value is None  # título de seção não tem quadradinho
+    assert [ws.cell(row=r, column=3).value for r in (3, 4)] == ["☐", "☐"]
+    # O quadradinho imprime; as colunas de apoio continuam fora da impressão.
+    assert ws.print_area.endswith("$A$1:$C$5")
+    # O total continua somando só as quantidades numéricas (agora a partir da coluna D).
+    assert ws.cell(row=5, column=2).value == "=SUM(D2:D4)"
+    assert ws.cell(row=3, column=4).value == 3
