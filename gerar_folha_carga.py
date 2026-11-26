@@ -349,7 +349,8 @@ def monta_linhas(itens, por_ref, variantes, apelidos, ordem, ordem_mapa=None):
 
 # --------------------------------------------------------------------------
 # Vasilhames: a garrafa retornável que vai cheia no caminhão volta vazia.
-# A folha mostra, no fim de RETORNÁVEIS, quanto de cada vasilhame deve voltar.
+# A folha mostra, no fim da seção dos produtos (RETORNÁVEIS, CERVEJAS RETORNÁVEIS),
+# quanto de cada vasilhame deve voltar.
 # (nome na folha, regra pelo nome do produto). A ordem aqui é a ordem na folha (a do mapa).
 TIPOS_VASILHAME = [
     # Coca-Cola 2L retornável, normal e zero.
@@ -358,6 +359,11 @@ TIPOS_VASILHAME = [
     ("KS", re.compile(r"\bKS\b")),
     # Guaraná 300ML retornável (não confundir com a cerveja litrinho 300ML).
     ("Guaraná 300ML", re.compile(r"^GUARANA\b.*\b300ML\b.*\bRET\b")),
+    # Cerveja 600ML retornável (Skol, Brahma, Antarctica, Original, Amstel, Spaten RET...).
+    # O RET pode vir antes ou depois do 600ML (CERV SPATEN RET. 600ML).
+    ("Cerveja 600ML", re.compile(r"^CERV\b(?=.*\b600ML\b)(?=.*\bRET\b)")),
+    # Cerveja litrão 1L retornável.
+    ("Litrão 1L", re.compile(r"^CERV\b(?=.*\b(1L|1000ML)\b)(?=.*\bRET\b)")),
 ]
 
 
@@ -440,17 +446,21 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
             folha.append(("secao", TITULO_SECAO.get(sec_atual, sec_atual)))
         folha.append(("item", l))
 
-    # Linhas dos vasilhames, todas juntas: no fim da seção onde estão esses produtos
-    # (RETORNÁVEIS); sem seções, logo depois do último deles. Não entram no TOTAL.
-    if vasilhames:
-        todas = set().union(*(v["chaves"] for v in vasilhames))
-        pos = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in todas]
-        if pos:
-            fim = pos[-1] + 1
-            if com_secao:
-                while fim < len(folha) and folha[fim][0] == "item":
-                    fim += 1
-            folha[fim:fim] = [("vasilhame", texto_vasilhame(v)) for v in vasilhames]
+    # Linhas dos vasilhames: no fim da seção onde estão os produtos de cada um
+    # (Coca 2L, KS, Guaraná em RETORNÁVEIS; cervejas em CERVEJAS RETORNÁVEIS).
+    # Sem seções, logo depois do último produto. Não entram no TOTAL.
+    onde = {}
+    for v in vasilhames or []:
+        pos = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in v["chaves"]]
+        if not pos:
+            continue
+        fim = pos[-1] + 1
+        if com_secao:
+            while fim < len(folha) and folha[fim][0] == "item":
+                fim += 1
+        onde.setdefault(fim, []).append(("vasilhame", texto_vasilhame(v)))
+    for fim in sorted(onde, reverse=True):  # de trás para frente, para não mudar as posições
+        folha[fim:fim] = onde[fim]
 
     n = len(folha)
     linha_total = n + 2

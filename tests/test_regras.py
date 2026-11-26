@@ -252,6 +252,15 @@ def test_tipo_de_vasilhame_pelo_nome():
     assert core.tipo_vasilhame("COCA COLA 2L") is None  # 2L descartável
     assert core.tipo_vasilhame("FANTA LARANJA 2L RET") is None
     assert core.tipo_vasilhame("CERV ANTARCTICA 300ML RET.") is None  # cerveja litrinho
+    # Cervejas 600ML e litrão retornáveis:
+    assert core.tipo_vasilhame("CERV SKOL 600ML RET") == "Cerveja 600ML"
+    assert core.tipo_vasilhame("CERV BRAHMA CHOPP 600ML RET.") == "Cerveja 600ML"
+    assert core.tipo_vasilhame("CERV ANTARTICA SUB-ZERO 600ML RET") == "Cerveja 600ML"
+    assert core.tipo_vasilhame("CERV SPATEN RET. 600ML") == "Cerveja 600ML"  # RET antes do 600ML
+    assert core.tipo_vasilhame("CERV SKOL LITRÃO 1L RET.") == "Litrão 1L"
+    assert core.tipo_vasilhame("CERV BRAHMA LITRAO 1L RET.") == "Litrão 1L"
+    assert core.tipo_vasilhame("CERV SPATEN DESC 600ML") is None  # descartável
+    assert core.tipo_vasilhame("CERV HEINEKEN 600ML") is None  # sem RET no nome
 
 
 def test_vasilhame_ks_conta_coca_fanta_sprite_ks():
@@ -316,3 +325,48 @@ def test_linhas_de_vasilhame_no_fim_de_retornaveis_e_fora_do_total(tmp_path):
     # O TOTAL continua batendo com o sistema: 4+2+1+5+2+3+5+7+3+1 = 33.
     numeros = [ws.cell(row=r, column=c).value for r in range(2, ws.max_row) for c in (4, 5)]
     assert sum(n for n in numeros if isinstance(n, (int, float))) == 33
+
+
+def test_vasilhame_de_cerveja_no_fim_de_cervejas_retornaveis(tmp_path):
+    from openpyxl import load_workbook
+
+    cadastro = dict(CADASTRO_RET, **{
+        "50": "CERV SKOL 600ML RET CX 24X1",
+        "51": "CERV BRAHMA CHOPP 600ML RET. CX 24X1",
+        "52": "CERV SPATEN RET. 600ML CX 24X1",
+        "53": "CERV SPATEN DESC 600ML CX 12X1",
+        "60": "CERV SKOL LITRÃO 1L RET. CX 12X1",
+        "61": "CERV BRAHMA LITRÃO 1L RET. UN",
+        "70": "VODKA SMIRNOFF 998ML UN",
+    })
+    itens = ITENS_RET + [
+        {"ref": "50", "nome": "", "qtd": 3.0},
+        {"ref": "51", "nome": "", "qtd": 2.0},
+        {"ref": "52", "nome": "", "qtd": 1.0},
+        {"ref": "53", "nome": "", "qtd": 4.0},
+        {"ref": "60", "nome": "", "qtd": 2.0},
+        {"ref": "61", "nome": "", "qtd": 6.0},
+        {"ref": "70", "nome": "", "qtd": 1.0},
+    ]
+    vas = core.conta_vasilhames(itens, _por_ref(cadastro))
+    assert [v["nome"] for v in vas] == ["Coca 2L", "KS", "Guaraná 300ML", "Cerveja 600ML", "Litrão 1L"]
+    # 600ML: 3 + 2 + 1 engradados de 24 (a Spaten descartável não conta).
+    assert core.texto_vasilhame(vas[3]) == ("Vasilhame Cerveja 600ML que volta (144 garrafas)", "6 CX")
+    # Litrão: 2 engradados de 12 + 6 garrafas soltas.
+    assert core.texto_vasilhame(vas[4]) == ("Vasilhame Litrão 1L que volta (30 garrafas)", "2 CX + 6 UN")
+
+    pasta = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ordem_mapa = core.le_ordem_mapa(os.path.join(pasta, "mapa_ordem.csv"))
+    linhas, *_ = linha_de(itens, cadastro, ordem="mapa", ordem_mapa=ordem_mapa)
+    _, _, final = core.escreve_xlsx(linhas, str(tmp_path / "Carga.xlsx"), "26/11/2026", "A", 52.0, vasilhames=vas)
+    col_a = [c.value for c in load_workbook(final).active["A"]]
+
+    # Coca 2L, KS e Guaraná continuam no fim de RETORNÁVEIS...
+    i = col_a.index("CERVEJAS RETORNÁVEIS")
+    assert col_a[i - 1] == "Vasilhame Guaraná 300ML que volta (171 garrafas)"
+    # ...e as cervejas ficam no fim de CERVEJAS RETORNÁVEIS, antes de DESTILADOS.
+    j = col_a.index("DESTILADOS")
+    assert col_a[j - 2:j] == [
+        "Vasilhame Cerveja 600ML que volta (144 garrafas)",
+        "Vasilhame Litrão 1L que volta (30 garrafas)",
+    ]
