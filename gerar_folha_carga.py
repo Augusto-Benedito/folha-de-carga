@@ -498,28 +498,16 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
             folha.append(("secao", TITULO_SECAO.get(sec_atual, sec_atual)))
         folha.append(("item", l))
 
-    # Linhas dos vasilhames: no fim da seção do primeiro produto de cada um
-    # (Refri 2L, KS, Guaraná em RETORNÁVEIS; cervejas em CERVEJAS RETORNÁVEIS — mesmo que
-    # a Cachaça 29 600ML, que está em DESTILADOS, volte no casco de 600ML).
-    # Sem seções, logo depois do último produto. Não entram no TOTAL.
-    onde = {}
-    for v in vasilhames or []:
-        pos = [i for i, (t, c) in enumerate(folha) if t == "item" and c[4] in v["chaves"]]
-        if not pos:
-            continue
-        if com_secao:
-            fim = pos[0] + 1
-            while fim < len(folha) and folha[fim][0] == "item":
-                fim += 1
-        else:
-            fim = pos[-1] + 1
-        onde.setdefault(fim, []).append(("vasilhame", texto_vasilhame(v)))
-    for fim in sorted(onde, reverse=True):  # de trás para frente, para não mudar as posições
-        folha[fim:fim] = onde[fim]
+    # Vasilhames: ficam num bloco próprio no fim da folha, depois do TOTAL
+    # (título VASILHAMES QUE DEVEM VOLTAR + uma linha por vasilhame). Não entram no TOTAL.
+    vas = [texto_vasilhame(v) for v in vasilhames or []]
 
     n = len(folha)
     linha_total = n + 2
-    por_pagina = math.ceil((n + 1) / 2)
+    linha_titulo_vas = linha_total + 1 if vas else None
+    linha_fim = linha_total + (1 + len(vas) if vas else 0)
+    # Linhas que imprimem, fora o cabeçalho (que se repete em cada página).
+    por_pagina = math.ceil((linha_fim - 1) / 2)
     altura = min(20.0, 730.0 / (por_pagina + 1))
     fonte = max(7, min(12, round(altura * 0.62)))
     aviso_fonte = altura < 11
@@ -538,15 +526,10 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
     ws.append(["Produto", "Quantidade", "OK"])
     linhas_secao = []
     linhas_novas = []
-    linhas_vasilhame = []
     for tipo, conteudo in folha:
         if tipo == "secao":
             ws.append([conteudo])
             linhas_secao.append(ws.max_row)
-            continue
-        if tipo == "vasilhame":
-            ws.append([conteudo[0], conteudo[1], CAIXINHA])
-            linhas_vasilhame.append(ws.max_row)
             continue
         l = conteudo
         ws.append([l[0], l[1], CAIXINHA] + l[2])
@@ -561,8 +544,18 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
         value=f"=SUM({letra_ini}2:{letra_fim}{n + 1})",
     )
 
+    # Bloco dos vasilhames, abaixo do TOTAL.
+    linhas_vasilhame = []
+    if vas:
+        ws.cell(row=linha_titulo_vas, column=1, value="VASILHAMES QUE DEVEM VOLTAR")
+        linhas_secao.append(linha_titulo_vas)
+        for k, (produto, qtd) in enumerate(vas, start=linha_titulo_vas + 1):
+            ws.cell(row=k, column=1, value=produto)
+            ws.cell(row=k, column=2, value=qtd)
+            ws.cell(row=k, column=3, value=CAIXINHA)
+            linhas_vasilhame.append(k)
+
     # As linhas de vasilhame são em negrito (letra mais larga): conta com uma folga a mais.
-    vas = [c for t, c in folha if t == "vasilhame"]
     larg_a = min(60, max([len(l[0]) + 2 for l in linhas] + [math.ceil(len(c[0]) * 1.12) + 3 for c in vas]))
     larg_b = min(34, max([len(l[1]) + 2 for l in linhas + [("", "Quantidade", [], 0, "")]] + [len(c[1]) + 4 for c in vas]))
     # A + B + C precisam caber na largura do A4 em pé: se passar, encolhe só a coluna A.
@@ -571,7 +564,7 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
     ws.column_dimensions["B"].width = max(larg_b, 12)
     ws.column_dimensions["C"].width = LARGURA_CAIXINHA
 
-    for r in range(1, linha_total + 1):
+    for r in range(1, linha_fim + 1):
         ws.row_dimensions[r].height = altura
         negrito = r in (1, linha_total) or r in linhas_secao or r in linhas_vasilhame
         for c in (1, 2, 3):
@@ -637,9 +630,9 @@ def escreve_xlsx(linhas, saida, data, grupo, total_pdf, titulo=None, vasilhames=
     ws.page_margins.top = ws.page_margins.bottom = 0.5
     ws.page_margins.header = ws.page_margins.footer = 0.2
     ws.print_title_rows = "1:1"
-    ws.print_area = f"A1:C{linha_total}"
+    ws.print_area = f"A1:C{linha_fim}"
     ws.print_options.horizontalCentered = True
-    if n > 1:
+    if linha_fim > 3:
         ws.row_breaks.append(Break(id=quebra))
     cab = titulo or f"Carga {data or ''}  {grupo or ''}".strip()
     ws.oddHeader.center.text = cab
