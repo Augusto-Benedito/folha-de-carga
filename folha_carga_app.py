@@ -3,6 +3,7 @@ Folha de Carga - janela para gerar a folha (Produto | Quantidade) a partir do
 PDF "Relatório de produtos - Pré-Venda" do sistema.
 
 Uso normal: abrir o programa, escolher o PDF do dia e clicar em "Gerar folha".
+A aba "Histórico" mostra as folhas já geradas (do "Histórico de cargas.xlsx").
 Atalho: arrastar o PDF em cima do ícone do programa (.exe) já abre e gera.
 
 Este arquivo precisa estar na mesma pasta do gerar_folha_carga.py
@@ -14,6 +15,7 @@ import os
 import subprocess
 import sys
 import traceback
+import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -95,13 +97,13 @@ def texto_detalhes(r):
     if r["fonte_pequena"]:
         L.append("")
         L.append("ATENÇÃO: muitos itens, a fonte ficou pequena. Considere imprimir em 3 páginas.")
-    v = r.get("vasilhame_ks")
-    if v:
+    if r.get("vasilhames"):
         L.append("")
+    for v in r.get("vasilhames") or []:
         produto, qtd = core.texto_vasilhame(v)
         L.append(f"{produto}: {qtd}")
         if v["sem_tamanho"]:
-            L.append("ATENÇÃO - KS sem tamanho de caixa no cadastro (não entraram nas garrafas):")
+            L.append(f"ATENÇÃO - {v['nome']} sem tamanho de caixa no cadastro (não entrou nas garrafas):")
             L += [f"  - {n}" for n in v["sem_tamanho"]]
     if r.get("aviso_historico"):
         L.append("")
@@ -113,12 +115,23 @@ def texto_detalhes(r):
     return "\n".join(L)
 
 
+def texto_hist(v):
+    """Valor de uma célula do histórico como texto para a tabela da aba Histórico."""
+    if v is None:
+        return ""
+    if isinstance(v, datetime.datetime):
+        return v.strftime("%d/%m/%Y %H:%M")
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
 # --------------------------------------------------------------------------
 class App(tk.Tk):
     def __init__(self, pdf_inicial=None):
         super().__init__()
         self.title("Folha de Carga")
-        self.minsize(640, 520)
+        self.minsize(820, 520)
         self.cfg = le_config()
         self.resultado = None
 
@@ -134,9 +147,19 @@ class App(tk.Tk):
             self.after(200, self.gerar)
 
     def _monta(self):
+        self.abas = ttk.Notebook(self)
+        self.abas.pack(fill="both", expand=True, padx=8, pady=8)
+        quadro = ttk.Frame(self.abas)
+        self.abas.add(quadro, text="  Gerar folha  ")
+        self.aba_hist = ttk.Frame(self.abas)
+        self.abas.add(self.aba_hist, text="  Histórico  ")
+        self._monta_gerar(quadro)
+        self._monta_historico(self.aba_hist)
+        # Ao abrir a aba Histórico, a lista é lida de novo do arquivo.
+        self.abas.bind("<<NotebookTabChanged>>", self._mudou_aba)
+
+    def _monta_gerar(self, quadro):
         pad = {"padx": 12, "pady": 4}
-        quadro = ttk.Frame(self)
-        quadro.pack(fill="both", expand=True, padx=8, pady=8)
         quadro.columnconfigure(1, weight=1)
 
         ttk.Label(quadro, text="1. PDF do dia (do sistema)", font=("Segoe UI", 10, "bold")).grid(
@@ -182,6 +205,131 @@ class App(tk.Tk):
         self.btn_abrir.pack(side="left")
         self.btn_pasta = ttk.Button(barra, text="Abrir pasta", command=self.abrir_pasta, state="disabled")
         self.btn_pasta.pack(side="left", padx=8)
+
+    # ----------------------------------------------------------------------
+    # Aba Histórico: lista das folhas geradas, lida do "Histórico de cargas.xlsx"
+    # da pasta das folhas (a pasta da última folha gerada, ou a escolhida aqui).
+    # (coluna do histórico, título na tela, largura, alinhamento)
+    COLUNAS_HIST = [
+        ("Gerado em", "Gerado em", 140, "center"),
+        ("Data do mapa", "Data do mapa", 110, "center"),
+        ("Mapa", "Mapa", 180, "w"),
+        ("Linhas na folha", "Linhas", 65, "center"),
+        ("Volumes", "Volumes", 80, "center"),
+        ("Total do sistema", "Sistema", 80, "center"),
+        ("Conferência", "Conferência", 110, "center"),
+    ]
+
+    def _monta_historico(self, aba):
+        topo = ttk.Frame(aba)
+        topo.pack(fill="x", padx=12, pady=(10, 4))
+        self.var_pasta_hist = tk.StringVar(value=self.cfg.get("pasta_historico", ""))
+        ttk.Label(topo, text="Pasta das folhas:", font=("Segoe UI", 10, "bold")).pack(side="left")
+        ttk.Entry(topo, textvariable=self.var_pasta_hist, state="readonly").pack(
+            side="left", fill="x", expand=True, padx=8
+        )
+        ttk.Button(topo, text="Trocar pasta...", command=self.escolhe_pasta_hist).pack(side="left")
+
+        self.lbl_hist = tk.Label(aba, text="", font=("Segoe UI", 10), anchor="w")
+        self.lbl_hist.pack(fill="x", padx=12, pady=(4, 2))
+
+        meio = ttk.Frame(aba)
+        meio.pack(fill="both", expand=True, padx=12, pady=4)
+        nomes = [c[0] for c in self.COLUNAS_HIST]
+        self.tabela = ttk.Treeview(meio, columns=nomes, show="headings", selectmode="browse")
+        for nome, titulo, largura, alinha in self.COLUNAS_HIST:
+            self.tabela.heading(nome, text=titulo)
+            self.tabela.column(nome, width=largura, anchor=alinha, stretch=(nome == "Mapa"))
+        self.tabela.tag_configure("nao_bateu", foreground="#b00020")
+        self.tabela.tag_configure("sem_arquivo", foreground="#888888")
+        rolagem = ttk.Scrollbar(meio, orient="vertical", command=self.tabela.yview)
+        self.tabela.configure(yscrollcommand=rolagem.set)
+        self.tabela.pack(side="left", fill="both", expand=True)
+        rolagem.pack(side="right", fill="y")
+        self.tabela.bind("<Double-1>", lambda e: self.abrir_folha_hist())
+
+        barra = ttk.Frame(aba)
+        barra.pack(fill="x", padx=12, pady=(4, 8))
+        ttk.Button(barra, text="Abrir folha selecionada", command=self.abrir_folha_hist).pack(side="left")
+        ttk.Button(barra, text="Abrir histórico no Excel", command=self.abrir_planilha_hist).pack(
+            side="left", padx=8
+        )
+        ttk.Button(barra, text="Atualizar", command=self.carrega_historico).pack(side="right")
+        self.folhas_hist = {}
+
+    def _mudou_aba(self, _evento=None):
+        if self.abas.select() == str(self.aba_hist):
+            self.carrega_historico()
+
+    def escolhe_pasta_hist(self):
+        p = filedialog.askdirectory(title="Escolha a pasta onde ficam as folhas de carga")
+        if p:
+            self._usa_pasta_hist(p)
+            self.carrega_historico()
+
+    def _usa_pasta_hist(self, pasta):
+        pasta = os.path.normpath(pasta)
+        self.var_pasta_hist.set(pasta)
+        if self.cfg.get("pasta_historico") != pasta:
+            self.cfg["pasta_historico"] = pasta
+            salva_config(self.cfg)
+
+    def carrega_historico(self):
+        self.tabela.delete(*self.tabela.get_children())
+        self.folhas_hist = {}
+        pasta = self.var_pasta_hist.get()
+        if not pasta:
+            self.lbl_hist.config(
+                text="Gere uma folha ou clique em 'Trocar pasta...' para ver o histórico.", fg="#444444"
+            )
+            return
+        try:
+            folhas = core.le_historico(pasta)
+        except Exception as e:
+            self.lbl_hist.config(text=f"Não consegui ler o histórico: {e}", fg="#b00020")
+            return
+        if not folhas:
+            self.lbl_hist.config(text="Ainda não há folhas no histórico desta pasta.", fg="#444444")
+            return
+        for f in folhas:
+            valores = [texto_hist(f.get(c[0])) for c in self.COLUNAS_HIST]
+            tags = []
+            if f.get("Conferência") == "NÃO BATEU":
+                tags.append("nao_bateu")
+            if not (f["caminho"] and os.path.exists(f["caminho"])):
+                tags.append("sem_arquivo")
+            item = self.tabela.insert("", "end", values=valores, tags=tags)
+            self.folhas_hist[item] = f
+        # Ordem cronológica: a folha mais nova fica no fim; já deixa ela à vista e selecionada.
+        ultimo = self.tabela.get_children()[-1]
+        self.tabela.see(ultimo)
+        self.tabela.selection_set(ultimo)
+        nao_bateu = sum(1 for f in folhas if f.get("Conferência") == "NÃO BATEU")
+        texto = f"{len(folhas)} folha(s) no histórico. Dois cliques numa linha abrem a folha."
+        if nao_bateu:
+            texto += f"  {nao_bateu} não bateu com o sistema (em vermelho)."
+        self.lbl_hist.config(text=texto, fg="#b00020" if nao_bateu else "#1b7a2b")
+
+    def abrir_folha_hist(self):
+        sel = self.tabela.selection()
+        if not sel:
+            messagebox.showinfo("Histórico", "Selecione uma folha na lista.")
+            return
+        caminho = self.folhas_hist[sel[0]]["caminho"]
+        if not caminho or not os.path.exists(caminho):
+            messagebox.showwarning(
+                "Histórico", f"Não achei a folha:\n{caminho}\n\nEla pode ter sido apagada ou movida."
+            )
+            return
+        abre_no_sistema(caminho)
+
+    def abrir_planilha_hist(self):
+        pasta = self.var_pasta_hist.get()
+        caminho = os.path.join(pasta, core.NOME_HISTORICO) if pasta else ""
+        if not caminho or not os.path.exists(caminho):
+            messagebox.showinfo("Histórico", "Ainda não há histórico nesta pasta.")
+            return
+        abre_no_sistema(caminho)
 
     # ----------------------------------------------------------------------
     def escolhe_pdf(self):
@@ -256,6 +404,8 @@ class App(tk.Tk):
                 cor = "#b00020" if not r["ok"] else "#b36b00"
                 msg += "  (veja os avisos)"
             self.mostra(msg, cor, texto_detalhes(r))
+            if r.get("historico"):
+                self._usa_pasta_hist(os.path.dirname(r["historico"]))
             self.btn_abrir.config(state="normal")
             self.btn_pasta.config(state="normal")
         finally:
